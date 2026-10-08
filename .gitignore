@@ -1,0 +1,21 @@
+# macOS Finder bookkeeping: invisible in Finder, but git would upload it.
+.DS_Store
+
+# Xcode per-user session data: open files, breakpoints, window layout.
+# Changes constantly while you work; committing it causes pointless merge conflicts.
+xcuserdata/
+*.xcuserdata/
+*.xcuserstate
+
+# Build products: regenerable output, never source. Keeps the repo lean.
+DerivedData/
+build/
+*.ipa
+*.dSYM.zip
+
+# Local regression/build output and Xcode archives.
+TestResults/
+.build/
+*.xcarchive/
+*.dSYM/
+*.zip

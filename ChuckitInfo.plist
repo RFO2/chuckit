@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Chuckit asks Finder to move only your reviewed items to Trash when macOS refuses a direct move. Finder handles any administrator password prompt.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>CFBundleURLName</key>
+			<string>toolebag.chuckit.open</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>chuckit</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

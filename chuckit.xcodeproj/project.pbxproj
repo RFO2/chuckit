@@ -6,8 +6,41 @@
 	objectVersion = 110;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		C47C17A00000000000000006 /* ChuckitWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = C47C17A00000000000000001 /* ChuckitWidget.swift */; };
+		C47C17A00000000000000007 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C47C17A00000000000000002 /* Assets.xcassets */; };
+		C47C17A00000000000000008 /* ChuckitWidgetExtension.appex in Embed Widget Extension */ = {isa = PBXBuildFile; fileRef = C47C17A00000000000000005 /* ChuckitWidgetExtension.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		C47C17A0000000000000000E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 115CA1AD3074A3E300E847CB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C47C17A00000000000000010;
+			remoteInfo = ChuckitWidgetExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		C47C17A0000000000000000D /* Embed Widget Extension */ = {
+			isa = PBXCopyFilesBuildPhase;
+			dstPath = "";
+			dstSubfolder = PlugIns;
+			files = (
+				C47C17A00000000000000008 /* ChuckitWidgetExtension.appex in Embed Widget Extension */,
+			);
+			name = "Embed Widget Extension";
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		115CA1B53074A3E300E847CB /* chuckit.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = chuckit.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C47C17A00000000000000001 /* ChuckitWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChuckitWidget.swift; sourceTree = "<group>"; };
+		C47C17A00000000000000002 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		C47C17A00000000000000003 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		C47C17A00000000000000004 /* ChuckitWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ChuckitWidget.entitlements; sourceTree = "<group>"; };
+		C47C17A00000000000000005 /* ChuckitWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ChuckitWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -24,6 +57,11 @@
 			files = (
 			);
 		};
+		C47C17A0000000000000000C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -31,6 +69,7 @@
 			isa = PBXGroup;
 			children = (
 				115CA1B73074A3E300E847CB /* chuckit */,
+				C47C17A00000000000000009 /* ChuckitWidget */,
 				115CA1B63074A3E300E847CB /* Products */,
 			);
 			sourceTree = "<group>";
@@ -39,8 +78,20 @@
 			isa = PBXGroup;
 			children = (
 				115CA1B53074A3E300E847CB /* chuckit.app */,
+				C47C17A00000000000000005 /* ChuckitWidgetExtension.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		C47C17A00000000000000009 /* ChuckitWidget */ = {
+			isa = PBXGroup;
+			children = (
+				C47C17A00000000000000001 /* ChuckitWidget.swift */,
+				C47C17A00000000000000002 /* Assets.xcassets */,
+				C47C17A00000000000000003 /* Info.plist */,
+				C47C17A00000000000000004 /* ChuckitWidget.entitlements */,
+			);
+			path = ChuckitWidget;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -53,8 +104,12 @@
 				115CA1B13074A3E300E847CB /* Sources */,
 				115CA1B23074A3E300E847CB /* Frameworks */,
 				115CA1B33074A3E300E847CB /* Resources */,
+				C47C17A0000000000000000D /* Embed Widget Extension */,
 			);
 			buildRules = (
+			);
+			dependencies = (
+				C47C17A0000000000000000F /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				115CA1B73074A3E300E847CB /* chuckit */,
@@ -63,6 +118,21 @@
 			productName = chuckit;
 			productReference = 115CA1B53074A3E300E847CB /* chuckit.app */;
 			productType = "com.apple.product-type.application";
+		};
+		C47C17A00000000000000010 /* ChuckitWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C47C17A00000000000000013 /* Build configuration list for PBXNativeTarget "ChuckitWidgetExtension" */;
+			buildPhases = (
+				C47C17A0000000000000000A /* Sources */,
+				C47C17A0000000000000000C /* Frameworks */,
+				C47C17A0000000000000000B /* Resources */,
+			);
+			buildRules = (
+			);
+			name = ChuckitWidgetExtension;
+			productName = ChuckitWidgetExtension;
+			productReference = C47C17A00000000000000005 /* ChuckitWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -94,6 +164,7 @@
 			projectRoot = "";
 			targets = (
 				115CA1B43074A3E300E847CB /* chuckit */,
+				C47C17A00000000000000010 /* ChuckitWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -104,6 +175,12 @@
 			files = (
 			);
 		};
+		C47C17A0000000000000000B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+				C47C17A00000000000000007 /* Assets.xcassets in Resources */,
+			);
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -112,7 +189,21 @@
 			files = (
 			);
 		};
+		C47C17A0000000000000000A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+				C47C17A00000000000000006 /* ChuckitWidget.swift in Sources */,
+			);
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		C47C17A0000000000000000F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C47C17A00000000000000010 /* ChuckitWidgetExtension */;
+			targetProxy = C47C17A0000000000000000E /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		115CA1BE3074A3E400E847CB /* Debug configuration for PBXProject "chuckit" */ = {
@@ -240,15 +331,18 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Chuckit.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = 2C53S7W23V;
-				ENABLE_APP_SANDBOX = YES;
+				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
-				ENABLE_USER_SELECTED_FILES = readonly;
+				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ChuckitInfo.plist;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -260,7 +354,7 @@
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
@@ -272,15 +366,17 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Chuckit.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = 2C53S7W23V;
-				ENABLE_APP_SANDBOX = YES;
+				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
-				ENABLE_USER_SELECTED_FILES = readonly;
+				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ChuckitInfo.plist;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -292,9 +388,68 @@
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		C47C17A00000000000000011 /* Debug configuration for PBXNativeTarget "ChuckitWidgetExtension" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = ChuckitWidget/ChuckitWidget.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 12;
+				DEVELOPMENT_TEAM = 2C53S7W23V;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ChuckitWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Chuckit;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = toolebag.chuckit.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		C47C17A00000000000000012 /* Release configuration for PBXNativeTarget "ChuckitWidgetExtension" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = ChuckitWidget/ChuckitWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 12;
+				DEVELOPMENT_TEAM = 2C53S7W23V;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ChuckitWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Chuckit;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = toolebag.chuckit.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 			};
 			name = Release;
@@ -315,6 +470,14 @@
 			buildConfigurations = (
 				115CA1C13074A3E400E847CB /* Debug configuration for PBXNativeTarget "chuckit" */,
 				115CA1C23074A3E400E847CB /* Release configuration for PBXNativeTarget "chuckit" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		C47C17A00000000000000013 /* Build configuration list for PBXNativeTarget "ChuckitWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C47C17A00000000000000011 /* Debug configuration for PBXNativeTarget "ChuckitWidgetExtension" */,
+				C47C17A00000000000000012 /* Release configuration for PBXNativeTarget "ChuckitWidgetExtension" */,
 			);
 			defaultConfigurationName = Release;
 		};
