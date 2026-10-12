@@ -17,7 +17,17 @@ enum DeletionService {
         let reason: String
         var permissionHelp: PermissionHelp? = nil
     }
-    typealias Outcome = (trashed: [RelatedFile], failed: [Failure])
+    // RFO2 — notices carry non-blocking problems (e.g. a launch job that would not stop);
+    // restorable maps each confirmed original URL to its Trash URL for "Undo last chuck".
+    struct Outcome: Sendable {
+        var trashed: [RelatedFile] = []
+        var failed: [Failure] = []
+        var notices: [String] = []
+        var restorable: [URL: URL] = [:]
+    }
+    /// Asked on the main actor when the app or a helper ignores a polite quit.
+    /// Receives the running app names; returning true force quits them.
+    typealias ForceQuitPrompt = @MainActor @Sendable ([String]) -> Bool
     // RFO2 — Map each original URL to its reported Trash destination. Partial batches
     // need per-item receipts so one success never hides a different failure.
     struct TrashReceipt: Sendable {
@@ -28,7 +38,7 @@ enum DeletionService {
     }
     // RFO2 — Filesystem identity survives a rename within a volume (APFS file ID).
     // A Trash receipt must identify the moved file itself; its old name is not proof.
-    struct FileIdentity: Equatable, Sendable {
+    struct FileIdentity: Hashable, Sendable {
         let device: dev_t
         let inode: ino_t
         static func of(_ url: URL) -> FileIdentity? {
@@ -43,7 +53,8 @@ enum DeletionService {
     // quit for the app and known helpers. If they keep running, leave the files alone.
     static func chuck(_ files: [RelatedFile], target: AppTarget,
                       progress: @escaping @Sendable (Double) -> Void,
-                      recycler: Recycler? = nil) async -> Outcome {
+                      recycler: Recycler? = nil,
+                      confirmForceQuit: ForceQuitPrompt? = nil) async -> Outcome {
         var failed: [Failure] = []
         let valid = files.filter { file in
             if let reason = RemovalPolicy.rejectionReason(for: file.url) {
@@ -52,43 +63,94 @@ enum DeletionService {
             return true
         }
         let ordered = deduplicated(valid)
-        guard !ordered.isEmpty else { return ([], failed) }
+        guard !ordered.isEmpty else { return Outcome(failed: failed) }
         let identifiers = Set([target.bundleIdentifier].compactMap { $0 } + target.helperBundleIdentifiers)
         await MainActor.run {
             for app in NSWorkspace.shared.runningApplications where app.bundleIdentifier.map(identifiers.contains) == true { app.terminate() }
         }
-        for _ in 0..<30 {
-            let running = await MainActor.run {
-                NSWorkspace.shared.runningApplications.contains { $0.bundleIdentifier.map(identifiers.contains) == true }
+        // Allow ~10 seconds for save dialogs and cleanup before asking about Force Quit.
+        var stillRunning = await waitForQuit(identifiers, attempts: 100)
+        if stillRunning, let confirmForceQuit {
+            let forced = await MainActor.run { () -> Bool in
+                let apps = NSWorkspace.shared.runningApplications.filter { $0.bundleIdentifier.map(identifiers.contains) == true }
+                guard !apps.isEmpty else { return false }
+                guard confirmForceQuit(apps.map { $0.localizedName ?? $0.bundleIdentifier ?? "Unknown app" }) else { return false }
+                apps.forEach { _ = $0.forceTerminate() }
+                return true
             }
-            if !running { break }
-            try? await Task.sleep(for: .milliseconds(100))
+            if forced { stillRunning = await waitForQuit(identifiers, attempts: 30) }
+            else { stillRunning = await waitForQuit(identifiers, attempts: 0) }
         }
-        let stillRunning = await MainActor.run {
-            NSWorkspace.shared.runningApplications.contains { $0.bundleIdentifier.map(identifiers.contains) == true }
-        }
-        if stillRunning { return ([], failed + ordered.map { .init(file: $0, reason: "The app or a helper is still running. Quit it and try again.") }) }
+        if stillRunning { return Outcome(failed: failed + ordered.map { .init(file: $0, reason: "The app or a helper is still running. Quit it and try again.") }) }
 
         let recycleItems: Recycler = recycler ?? { urls in await recycle(urls) }
         var trashed: [RelatedFile] = []
+        var notices: [String] = []
+        var restorable: [URL: URL] = [:]
         // RFO2 — Move selected leftovers first. Keep the main app when any selected move fails,
         // so the user can resolve the failure and retry from a known installation.
         let leftovers = ordered.filter { $0.url != target.url }
         let leftoverOutcome = await trashBatch(leftovers, recycler: recycleItems)
         trashed += leftoverOutcome.trashed
         failed += leftoverOutcome.failed
+        notices += leftoverOutcome.notices
+        restorable.merge(leftoverOutcome.restorable) { first, _ in first }
         progress(Double(leftovers.count) / Double(ordered.count))
         if let appFile = ordered.first(where: { $0.url == target.url }) {
             if failed.isEmpty {
                 let appOutcome = await trashBatch([appFile], recycler: recycleItems)
                 trashed += appOutcome.trashed
                 failed += appOutcome.failed
+                notices += appOutcome.notices
+                restorable.merge(appOutcome.restorable) { first, _ in first }
             } else {
                 failed.append(.init(file: appFile, reason: "The app was kept because some selected items could not be moved to Trash. Resolve those errors and retry."))
             }
         }
         progress(1)
-        return (trashed, failed)
+        return Outcome(trashed: trashed, failed: failed, notices: notices, restorable: restorable)
+    }
+
+    /// Polls up to `attempts` × 100 ms; returns true while the app or a helper is still running.
+    private static func waitForQuit(_ identifiers: Set<String>, attempts: Int) async -> Bool {
+        for _ in 0..<attempts {
+            let running = await MainActor.run {
+                NSWorkspace.shared.runningApplications.contains { $0.bundleIdentifier.map(identifiers.contains) == true }
+            }
+            if !running { return false }
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+        return await MainActor.run {
+            NSWorkspace.shared.runningApplications.contains { $0.bundleIdentifier.map(identifiers.contains) == true }
+        }
+    }
+
+    // RFO2 — Undo the most recent chuck: move each confirmed Trash item back to its
+    // original path. Never overwrite: an occupied original or a missing Trash item is
+    // reported and left alone. Each restore is verified at both ends.
+    static func restore(_ receipts: [URL: URL]) -> (restored: [URL], failed: [(url: URL, reason: String)]) {
+        let fm = FileManager.default
+        var restored: [URL] = []
+        var failed: [(url: URL, reason: String)] = []
+        for (original, trashed) in receipts.sorted(by: { $0.key.path.count < $1.key.path.count }) {
+            guard trashed.pathComponents.contains(".Trash") || trashed.pathComponents.contains(".Trashes"), !isAbsent(trashed) else {
+                failed.append((original, "It is no longer in Trash.")); continue
+            }
+            guard isAbsent(original) else {
+                failed.append((original, "Something already exists at the original location; nothing was overwritten.")); continue
+            }
+            guard !isAbsent(original.deletingLastPathComponent()) else {
+                failed.append((original, "Its original folder no longer exists.")); continue
+            }
+            do {
+                try fm.moveItem(at: trashed, to: original)
+                if !isAbsent(original) && isAbsent(trashed) { restored.append(original) }
+                else { failed.append((original, "The move back could not be verified. Check Trash and the original folder.")) }
+            } catch {
+                failed.append((original, error.localizedDescription))
+            }
+        }
+        return (restored, failed)
     }
 
     private static func trashBatch(_ files: [RelatedFile], recycler: Recycler) async -> Outcome {
@@ -102,9 +164,11 @@ enum DeletionService {
             }
             return true
         }
-        guard !ready.isEmpty else { return ([], failed) }
-        await Task.detached {
-            for file in ready { stopLaunchJob(for: file.url) }
+        guard !ready.isEmpty else { return Outcome(failed: failed) }
+        let notices = await Task.detached { () -> [String] in
+            ready.compactMap { file in
+                stopLaunchJob(for: file.url).map { "\(file.displayName): the launch service could not be stopped (\($0)). It may keep running until you log out or restart." }
+            }
         }.value
         // The native recycler handles destination collisions. A denied move
         // does not prove that Full Disk Access is disabled.
@@ -112,9 +176,11 @@ enum DeletionService {
         let receipt = await recycler(ready.map(\.url))
         recordDiagnostic(stage: "final", urls: ready.map(\.url), receipt: receipt)
         var trashed: [RelatedFile] = []
+        var restorable: [URL: URL] = [:]
         for file in ready {
             if let destination = receipt.destinations[file.url], confirmedTrashMove(from: file.url, to: destination) {
                 trashed.append(file)
+                restorable[file.url] = destination
             } else {
                 let help: PermissionHelp? = receipt.permissionHelp ?? (receipt.permissionDenied
                     ? (file.url.pathExtension.lowercased() == "app" ? .application : .appData) : nil)
@@ -130,7 +196,7 @@ enum DeletionService {
                 failed.append(.init(file: file, reason: reason, permissionHelp: help))
             }
         }
-        return (trashed, failed)
+        return Outcome(trashed: trashed, failed: failed, notices: notices, restorable: restorable)
     }
 
     // RFO2 — NSWorkspace and Finder integration run on the main actor. The native callback
@@ -270,14 +336,23 @@ enum DeletionService {
 
     // RFO2 — Ask launchctl to unload only a selected launch-service plist.
     // Use structured process arguments, never shell interpolation of a user path.
-    private static func stopLaunchJob(for url: URL) {
-        guard let domain = launchDomain(for: url) else { return }
+    // Returns a failure description, or nil when the job stopped or was not loaded.
+    // No privilege escalation is attempted.
+    private static func stopLaunchJob(for url: URL) -> String? {
+        guard let domain = launchDomain(for: url) else { return nil }
         let process = Process()
+        let errors = Pipe()
         process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
         process.arguments = ["bootout", domain, url.path]
         process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
-        if (try? process.run()) != nil { process.waitUntilExit() }
+        process.standardError = errors
+        do { try process.run() } catch { return "launchctl could not run: " + error.localizedDescription }
+        process.waitUntilExit()
+        let message = String(data: errors.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        // 3 (ESRCH) and 113 mean the job was not loaded, so there is nothing to stop.
+        if process.terminationStatus == 0 || [3, 113].contains(process.terminationStatus) { return nil }
+        return message.isEmpty ? "launchctl exit \(process.terminationStatus)" : message
     }
 }
 

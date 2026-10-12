@@ -26,7 +26,7 @@ private enum Phase {
     case scanning(AppTarget)
     case review(ScanResult)
     case deleting(targetName: String, progress: DeleteProgressBridge)
-    case done(targetName: String, trashed: Int, failed: [DeletionService.Failure], trashedBytes: Int64)
+    case done(targetName: String, trashed: Int, failed: [DeletionService.Failure], trashedBytes: Int64, notices: [String], restorable: [URL: URL])
 }
 
 /// A tiny bridge so the detached deletion engine can report progress.
@@ -78,12 +78,14 @@ struct ContentView: View {
             case .deleting(let name, let bridge):
                 DeleteProgressView(targetName: name, bridge: bridge)
 
-            case .done(let name, let trashed, let failed, let movedBytes):
+            case .done(let name, let trashed, let failed, let movedBytes, let notices, let restorable):
                 DoneView(
                     targetName: name,
                     trashedCount: trashed,
                     failed: failed,
                     trashedBytes: movedBytes,
+                    notices: notices,
+                    restorable: restorable,
                     onAgain: { phase = .drop }
                 )
             }
@@ -143,6 +145,15 @@ struct ContentView: View {
                 target: result.target,
                 progress: { value in
                     Task { await bridge.set(value) }
+                },
+                confirmForceQuit: { names in
+                    // The app ignored a polite quit (often an unsaved-changes dialog).
+                    let alert = NSAlert()
+                    alert.messageText = "\(names.joined(separator: ", ")) is still running."
+                    alert.informativeText = "It didn't quit within 10 seconds. Force quitting discards any unsaved changes."
+                    alert.addButton(withTitle: "Force Quit")
+                    alert.addButton(withTitle: "Cancel")
+                    return alert.runModal() == .alertFirstButtonReturn
                 }
             )
             // Report only confirmed moves. Trashed bytes have not been freed.
@@ -152,7 +163,9 @@ struct ContentView: View {
                     targetName: name,
                     trashed: outcome.trashed.count,
                     failed: outcome.failed,
-                    trashedBytes: movedBytes
+                    trashedBytes: movedBytes,
+                    notices: outcome.notices,
+                    restorable: outcome.restorable
                 )
             }
         }
@@ -223,8 +236,12 @@ private struct DoneView: View {
     let trashedCount: Int
     let failed: [DeletionService.Failure]
     let trashedBytes: Int64
+    let notices: [String]
+    let restorable: [URL: URL]
     let onAgain: () -> Void
     @State private var showingPermissionHelp = false
+    @State private var undoMessage: String?
+    @State private var undoFailures: [(url: URL, reason: String)] = []
 
     private var needsPermissionHelp: Bool {
         failed.contains { $0.permissionHelp != nil }
@@ -294,6 +311,26 @@ private struct DoneView: View {
                     }
                 }
                 }.frame(maxHeight: 220).padding(.top, 8)
+            }
+            if !notices.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(notices, id: \.self) { notice in
+                        Text("• " + notice).font(.caption2).foregroundColor(.secondary).textSelection(.enabled)
+                    }
+                }
+            }
+            if let undoMessage {
+                Text(undoMessage).font(.caption).foregroundColor(.secondary)
+                ForEach(undoFailures, id: \.url) { failure in
+                    Text("• \(failure.url.path): \(failure.reason)").font(.caption2).foregroundColor(.secondary).textSelection(.enabled)
+                }
+            } else if !restorable.isEmpty {
+                // One-click undo for this chuck only; items go back to where they were.
+                Button("Undo last chuck") {
+                    let result = DeletionService.restore(restorable)
+                    undoFailures = result.failed
+                    undoMessage = "\(result.restored.count) of \(restorable.count) items restored to their original locations." + (result.failed.isEmpty ? "" : " These couldn't be restored:")
+                }.buttonStyle(.link)
             }
             Button("Chuck another app", action: onAgain)
                 .buttonStyle(.borderedProminent)

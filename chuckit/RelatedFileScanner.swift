@@ -56,9 +56,15 @@ final class RelatedFileScanner: ObservableObject {
         // Preselection follows the validated scan root, never a path substring: a personal
         // folder can contain "/Library/" without being app data.
         func addCandidate(_ entry: URL, in location: ScanLocation, evidence: MatchEngine.Evidence) -> Bool {
+            // The enumerator reports /private/var paths; keep the standard /var form the
+            // rest of the app (and Finder) uses so rows compare and display consistently.
+            let entry = entry.standardizedFileURL
             guard RemovalPolicy.rejectionReason(for: entry) == nil,
                   seen.insert(entry.standardizedFileURL.path).inserted else { return false }
-            let shared = entry.path.contains("/Group Containers/")
+            // Shared data is decided by the scan root, not a path substring: either a known
+            // app-group container root, or an entry sitting directly in a Group Containers folder.
+            let groupRoot = location.url.deletingLastPathComponent().lastPathComponent == "Group Containers" && RemovalPolicy.contains(entry, in: location.url)
+            let shared = groupRoot || entry.deletingLastPathComponent().lastPathComponent == "Group Containers"
             let appData = location.isAppData
             files.append(RelatedFile(url: entry, locationDescription: appData ? "App data" : "Internal drive search", sizeBytes: size(of: entry), requiresAdmin: RemovalPolicy.needsAdmin(entry), isSelected: evidence.selected && appData && !shared, evidence: shared ? "Shared app group — review before selecting" : evidence.reason))
             return true
@@ -76,8 +82,15 @@ final class RelatedFileScanner: ObservableObject {
                 // Access failures are expected in a broad scan; skip silently.
                 return true
             }) else { continue }
+            // Normal scans look only a couple of levels into broad drawers (Application
+            // Support, Caches, Logs…). App-specific container roots are walked fully.
+            let maxDepth = location.isAppData && !location.includesRootCandidate ? 2 : Int.max
             for case let entry as URL in iterator {
                 if Task.isCancelled { break }
+                if iterator.level > maxDepth {
+                    iterator.skipDescendants()
+                    continue
+                }
                 if ScanExclusions.contains(entry) {
                     iterator.skipDescendants()
                     continue
@@ -121,24 +134,35 @@ final class RelatedFileScanner: ObservableObject {
 
     // RFO2 — Sizes are estimates gathered during discovery, not a promise of freed space.
     // Use the same volume boundary during sizing as during candidate traversal.
+    // Finder-style on-disk size: allocated bytes, each hard-linked file counted once.
+    nonisolated static func allocatedSize(_ v: URLResourceValues) -> Int64 {
+        Int64(v.totalFileAllocatedSize ?? v.fileAllocatedSize ?? v.fileSize ?? 0)
+    }
+
     nonisolated static func size(of url: URL) -> Int64 {
         guard !ScanExclusions.contains(url), InternalDrivePolicy.allows(url) else { return 0 }
         let fm = FileManager.default
-        if let v = try? url.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey, .fileSizeKey]), v.isDirectory != true || v.isSymbolicLink == true { return Int64(v.fileSize ?? 0) }
+        let sizeKeys: Set<URLResourceKey> = [.totalFileAllocatedSizeKey, .fileAllocatedSizeKey, .fileSizeKey, .isDirectoryKey, .isSymbolicLinkKey, .volumeURLKey, .linkCountKey]
+        if let v = try? url.resourceValues(forKeys: sizeKeys), v.isDirectory != true || v.isSymbolicLink == true { return allocatedSize(v) }
         var total: Int64 = 0
-        if let iterator = fm.enumerator(at: url, includingPropertiesForKeys: [.fileSizeKey, .isDirectoryKey, .isSymbolicLinkKey, .volumeURLKey], options: []) {
+        var seenLinked = Set<DeletionService.FileIdentity>()
+        if let iterator = fm.enumerator(at: url, includingPropertiesForKeys: Array(sizeKeys), options: []) {
             for case let child as URL in iterator {
                 if Task.isCancelled { break }
                 if ScanExclusions.contains(child) {
                     iterator.skipDescendants()
                     continue
                 }
-                guard let v = try? child.resourceValues(forKeys: [.fileSizeKey, .isDirectoryKey, .isSymbolicLinkKey, .volumeURLKey]), v.isSymbolicLink != true else { continue }
+                guard let v = try? child.resourceValues(forKeys: sizeKeys), v.isSymbolicLink != true else { continue }
                 guard InternalDrivePolicy.allowsEnumeratedEntry(child) else {
                     iterator.skipDescendants()
                     continue
                 }
-                if v.isDirectory != true { total += Int64(v.fileSize ?? 0) }
+                guard v.isDirectory != true else { continue }
+                if (v.linkCount ?? 1) > 1, let identity = DeletionService.FileIdentity.of(child) {
+                    guard seenLinked.insert(identity).inserted else { continue }
+                }
+                total += allocatedSize(v)
             }
         }
         return total

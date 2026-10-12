@@ -92,11 +92,21 @@ enum RemovalPolicy {
             return "Chuckit cannot remove itself or its containing folder."
         }
         // An ancestor link could redirect a removal operation after review.
-        if url.deletingLastPathComponent().standardizedFileURL.path != url.deletingLastPathComponent().resolvingSymlinksInPath().standardizedFileURL.path {
-            // /var and /tmp are standard macOS links; normalize those at discovery.
+        // /var, /tmp and /etc are standard macOS links into /private; Foundation drops the
+        // /private prefix inconsistently, so compare both sides without it.
+        let parent = url.deletingLastPathComponent()
+        if withoutPrivatePrefix(parent.standardizedFileURL.path) != withoutPrivatePrefix(parent.resolvingSymlinksInPath().standardizedFileURL.path) {
             return "This path passes through a symbolic link. Select its real location instead."
         }
         return nil
+    }
+
+    /// Maps /private/var, /private/tmp and /private/etc onto their standard /var, /tmp, /etc links.
+    static func withoutPrivatePrefix(_ path: String) -> String {
+        for link in ["/var", "/tmp", "/etc"] where path == "/private" + link || path.hasPrefix("/private" + link + "/") {
+            return String(path.dropFirst("/private".count))
+        }
+        return path
     }
 
     // RFO2 — This is a writability hint for the UI. The actual move and any required

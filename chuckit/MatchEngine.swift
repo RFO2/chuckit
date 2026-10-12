@@ -12,11 +12,20 @@ enum MatchEngine {
         let selected: Bool
     }
 
-    // RFO2 — The current rule accepts an exact identifier or any dotted suffix.
-    // A dotted sibling can therefore match too; tighter matching remains a release task.
+    /// Extensions an app commonly appends to its own identifier ("com.foo.app.plist").
+    static let knownIdentifierSuffixes: Set<String> = ["plist", "savedstate", "binarycookies", "helper", "lockfile", "lock",
+        "log", "logs", "db", "sqlite", "sqlite-wal", "sqlite-shm", "wal", "shm", "json", "xml", "txt", "cache", "dat",
+        "crash", "ips", "diag", "sfl2", "sfl3", "tmp", "bak", "backup", "list", "settings", "storedata", "cookies", "data"]
+
+    // RFO2 — Accept the exact identifier, or the identifier followed only by known file
+    // extensions. A dotted sibling product (com.foo.app.other) is not this app; embedded
+    // helpers match only when the bundle lists them explicitly.
     static func identifierMatches(_ name: String, identifier: String) -> Bool {
         let name = name.lowercased(), id = identifier.lowercased()
-        return name == id || name.hasPrefix(id + ".")
+        if name == id { return true }
+        guard name.hasPrefix(id + ".") else { return false }
+        let suffixes = name.dropFirst(id.count + 1).split(separator: ".", omittingEmptySubsequences: false)
+        return !suffixes.isEmpty && suffixes.allSatisfy { knownIdentifierSuffixes.contains(String($0)) }
     }
 
     static func matches(fileName: String, target: AppTarget) -> Bool {
