@@ -332,29 +332,31 @@ private struct DoneView: View {
     }
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: ChuckSpace.m) {
             Spacer()
             can
-            if failed.isEmpty {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 56))
-                    .foregroundColor(.green)
-                Text("Selected items moved to Trash.")
-                    .font(.title2).bold()
-            } else {
-                // Survivors means the headline can't claim total victory.
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 56))
-                    .foregroundColor(.orange)
-                Text("\(targetName) didn't go quietly.")
-                    .font(.title2).bold()
+            // One hero: the size now sitting in Trash.
+            VStack(spacing: 4) {
+                RollingBytes(bytes: shownBytes)
+                Text("in Trash")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
             }
-            RollingTrashSummary(count: trashedCount, bytes: shownBytes)
-                .foregroundColor(.secondary)
-            Text("Open Trash in the Dock to recover items. Moving items to Trash does not free disk space.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
+            .accessibilityElement(children: .combine)
+            HStack(spacing: ChuckSpace.xs) {
+                Image(systemName: failed.isEmpty ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                    .foregroundColor(failed.isEmpty ? .green : .orange)
+                Text(failed.isEmpty ? "Selected items moved to Trash." : "\(targetName) didn't go quietly.")
+                    .bold()
+            }
+            .font(.title3)
+            VStack(spacing: 4) {
+                Text("\(trashedCount) items moved to Trash")
+                Text("Open Trash in the Dock to recover items. Moving items to Trash does not free disk space.")
+                    .multilineTextAlignment(.center)
+            }
+            .font(.caption)
+            .foregroundColor(.secondary)
             if needsPermissionHelp {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Check removal permissions").font(.headline)
@@ -364,9 +366,8 @@ private struct DoneView: View {
                     Button("Show Permission Instructions…") { showingPermissionHelp = true }
                         .buttonStyle(.borderedProminent).tint(.red)
                 }
-                .padding(16)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.white, in: RoundedRectangle(cornerRadius: 12))
+                .glassCard()
             }
             if !failed.isEmpty {
                 // Every survivor gets named WITH its reason. No shrugs.
@@ -389,7 +390,8 @@ private struct DoneView: View {
                         }
                     }
                 }
-                }.frame(maxHeight: 220).padding(.top, 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                }.frame(maxHeight: 220).glassCard(padding: ChuckSpace.s)
             }
             if !notices.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
@@ -397,6 +399,8 @@ private struct DoneView: View {
                         Text("• " + notice).font(.caption2).foregroundColor(.secondary).textSelection(.enabled)
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .glassCard(padding: ChuckSpace.s)
             }
             if let undoMessage {
                 Text(undoMessage).font(.caption).foregroundColor(.secondary)
@@ -410,10 +414,11 @@ private struct DoneView: View {
             Button("Chuck another app", action: onAgain)
                 .buttonStyle(.borderedProminent)
                 .tint(.red)
-                .padding(.top, 12)
+                .padding(.top, ChuckSpace.s)
             Spacer()
         }
-        .padding(40)
+        .padding(.horizontal, ChuckSpace.l * 1.5)
+        .padding(.vertical, ChuckSpace.l)
         .onAppear {
             guard !reduceMotion else { shownBytes = Double(trashedBytes); return }
             withAnimation(ChuckMotion.roll.delay(0.15)) { shownBytes = Double(trashedBytes) }

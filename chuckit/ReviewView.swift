@@ -65,7 +65,9 @@ struct ReviewView: View {
                     .buttonStyle(.plain)
                     .foregroundColor(.secondary)
             }
-            .padding(20)
+            .padding(.horizontal, ChuckSpace.l)
+            .padding(.top, ChuckSpace.l)
+            .padding(.bottom, ChuckSpace.m)
 
             if !result.warnings.isEmpty {
                 VStack(alignment: .leading, spacing: 5) {
@@ -76,11 +78,16 @@ struct ReviewView: View {
                     Button("Open Full Disk Access Settings") {
                         showingFullDiskAccessSetup = true
                     }
-                }.padding(.horizontal, 20).padding(.bottom, 8)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .glassCard(padding: ChuckSpace.s)
+                .padding(.horizontal, ChuckSpace.l).padding(.bottom, ChuckSpace.s)
             }
 
             Text("Identifier matches are selected. Name matches and shared data need your review.")
-                .font(.caption).foregroundColor(.secondary).padding(.horizontal, 20)
+                .font(.caption).foregroundColor(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, ChuckSpace.l)
 
             // Select all / none — because unchecking 47 boxes one by one
             // is how you get users to stop reading the list.
@@ -92,8 +99,8 @@ struct ReviewView: View {
                     .buttonStyle(.link)
             }
             .font(.caption)
-            .padding(.horizontal, 20)
-            .padding(.bottom, 6)
+            .padding(.horizontal, ChuckSpace.l)
+            .padding(.vertical, ChuckSpace.xs)
 
             // The evidence board itself.
             List {
@@ -101,11 +108,16 @@ struct ReviewView: View {
                     // $file is the binding (for the checkbox); file is the
                     // plain value (for everything we just display).
                     let file = $file.wrappedValue
-                    HStack(spacing: 10) {
+                    HStack(alignment: .center, spacing: ChuckSpace.s) {
                         Toggle("", isOn: $file.isSelected)
                             .toggleStyle(.checkbox)
                             .labelsHidden()
-                        VStack(alignment: .leading, spacing: 1) {
+                        Image(nsImage: NSWorkspace.shared.icon(forFile: file.url.path))
+                            .resizable()
+                            .interpolation(.high)
+                            .frame(width: 24, height: 24)
+                            .opacity(file.isSelected ? 1 : 0.45)
+                        VStack(alignment: .leading, spacing: 2) {
                             Text(file.displayName)
                                 .font(.body)
                                 // Unchecked files fade — the eye should go
@@ -118,7 +130,7 @@ struct ReviewView: View {
                                 .lineLimit(1)
                                 .truncationMode(.middle)
                         }
-                        Spacer()
+                        Spacer(minLength: ChuckSpace.s)
                         // The little lock warns: this one needs your
                         // admin password at chuck time.
                         if file.requiresAdmin {
@@ -130,11 +142,19 @@ struct ReviewView: View {
                         Text(file.formattedSize)
                             .font(.body.monospacedDigit())
                             .foregroundColor(.secondary)
+                            .frame(minWidth: 72, alignment: .trailing)
                     }
-                    .padding(.vertical, 2)
+                    .padding(.vertical, 4)
+                    .contentShape(Rectangle())
+                    .hoverHighlight()
+                    .listRowBackground(Color.clear)
+                    .listRowSeparatorTint(Color.primary.opacity(0.08))
                 }
             }
             .listStyle(.inset)
+            .scrollContentBackground(.hidden)
+            .glassCard(padding: ChuckSpace.xs)
+            .padding(.horizontal, ChuckSpace.l)
 
             // The trigger.
             HStack {
@@ -161,7 +181,8 @@ struct ReviewView: View {
                 // The button stays dead until at least one box is checked.
                 // Chucking nothing should be impossible, not just pointless.
             }
-            .padding(20)
+            .padding(.horizontal, ChuckSpace.l)
+            .padding(.vertical, ChuckSpace.m)
         }
         .sheet(isPresented: $showingFullDiskAccessSetup) { FullDiskAccessSetup() }
         .sheet(item: $pendingDeletion) { selection in
