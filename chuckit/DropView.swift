@@ -30,6 +30,11 @@ struct DropView: View {
     @State private var expandedSearch = false
     @State private var pendingExpandedApp: URL?
     @State private var confirmingExpandedSearch = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var lidOpen: Double = 0
+    @State private var dropIcon: NSImage?
+    @State private var iconFallen = false
+    @State private var isChucking = false
     @AppStorage("hasSeenFullDiskAccessSetup") private var hasSeenFullDiskAccessSetup = false
     // RFO2 — Keep the dotted outline's top and side insets at 70% of its
     // bottom inset: 98 points above and beside it, and 140 points below it.
@@ -45,16 +50,27 @@ struct DropView: View {
                         RoundedRectangle(cornerRadius: 18)
                             .strokeBorder(Color.secondary.opacity(0.5), style: StrokeStyle(lineWidth: 2, dash: [10, 6]))
                     }
-                    .animation(.easeInOut(duration: 0.15), value: isTargeted)
+                    .animation(ChuckMotion.hover, value: isTargeted)
 
                 VStack(spacing: 10) {
-                    Image("ChuckCan")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 120)
-                        // The can leans into the drop like it's hungry.
-                        .scaleEffect(isTargeted ? 1.08 : 1.0)
-                        .animation(.spring(response: 0.3), value: isTargeted)
+                    // Hover: the lid cracks open and the can leans toward the drag.
+                    ChuckCanFigure(width: 120,
+                                   lidOpen: lidOpen,
+                                   tilt: (isTargeted && !reduceMotion && !isChucking) ? -4 : 0)
+                        .scaleEffect(isTargeted && !reduceMotion ? 1.04 : 1.0)
+                        .animation(ChuckMotion.hover, value: isTargeted)
+                        .overlay(alignment: .top) {
+                            if let dropIcon {
+                                FlyingAppIcon(image: dropIcon)
+                                    .scaleEffect(iconFallen ? 0.18 : 1)
+                                    .offset(y: iconFallen ? 18 : -64)
+                                    .opacity(iconFallen ? 0 : 1)
+                            }
+                        }
+                        .onChange(of: isTargeted) { _, targeted in
+                            guard !isChucking, !reduceMotion else { return }
+                            withAnimation(ChuckMotion.hover) { lidOpen = targeted ? 0.35 : 0 }
+                        }
 
                     // The wordmark, tucked right under the can like a logo
                     // lockup: one word, black chuck, red it. Always.
@@ -132,29 +148,61 @@ struct DropView: View {
     // already allows only a single selection.
     private func handleDrop(_ providers: [NSItemProvider]) -> Bool {
         errorMessage = nil
-        guard providers.count <= 1, let provider = providers.first else {
-            errorMessage = "One app at a time — drop a single .app bundle."
-            return true
-        }
-        _ = provider.loadDataRepresentation(forTypeIdentifier: UTType.fileURL.identifier) { data, _ in
-            guard let data,
-                  let url = URL(dataRepresentation: data, relativeTo: nil) else { return }
-            DispatchQueue.main.async {
-                // Resolve aliases/bookmarks first — a user might drop
-                // an alias from the Dock. We want the real app.
-                guard InternalDrivePolicy.allows(url) else {
-                    errorMessage = "Choose an app on this Mac's internal startup drive. External drives and network volumes are excluded."
-                    return
-                }
-                let resolved = (try? URL(resolvingAliasFileAt: url)) ?? url
-                if resolved.pathExtension.lowercased() == "app" {
-                    requestInvestigation(resolved)
-                } else {
-                    errorMessage = "That's not an app — drop a .app bundle."
+        guard !providers.isEmpty, !isChucking else { return false }
+        // One app at a time: load every dropped URL, then keep only the first
+        // .app in drop order. Everything else in a multi-item drop is ignored.
+        var urls = [URL?](repeating: nil, count: providers.count)
+        let group = DispatchGroup()
+        for (index, provider) in providers.enumerated() {
+            group.enter()
+            _ = provider.loadDataRepresentation(forTypeIdentifier: UTType.fileURL.identifier) { data, _ in
+                let url = data.flatMap { URL(dataRepresentation: $0, relativeTo: nil) }
+                DispatchQueue.main.async {
+                    urls[index] = url
+                    group.leave()
                 }
             }
         }
+        group.notify(queue: .main) {
+            // Resolve aliases first — a user might drop an alias from the Dock.
+            let resolved = urls.compactMap { $0 }.map { (try? URL(resolvingAliasFileAt: $0)) ?? $0 }
+            guard let app = resolved.first(where: { $0.pathExtension.lowercased() == "app" }) else {
+                withAnimation(ChuckMotion.hover) { lidOpen = 0 }
+                errorMessage = "That's not an app — drop a .app bundle."
+                return
+            }
+            if providers.count > 1 {
+                errorMessage = "One app at a time — only \(app.deletingPathExtension().lastPathComponent) was taken."
+            }
+            requestInvestigation(app, animated: true)
+        }
         return true
+    }
+
+    /// Lid flips open, the icon drops in, the lid snaps shut, then the scan starts.
+    private func playChuck(_ url: URL, then proceed: @escaping () -> Void) {
+        ChuckMotion.tap()
+        if reduceMotion {
+            withAnimation(ChuckMotion.fade) { lidOpen = 0 }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: proceed)
+            return
+        }
+        isChucking = true
+        iconFallen = false
+        dropIcon = NSWorkspace.shared.icon(forFile: url.path)
+        withAnimation(ChuckMotion.lidOpen) { lidOpen = 1 }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.14) {
+            withAnimation(ChuckMotion.fall) { iconFallen = true }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.48) {
+            withAnimation(ChuckMotion.lidSnap) { lidOpen = 0 }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.09) { ChuckMotion.thunk() }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.86) {
+            dropIcon = nil
+            isChucking = false
+            proceed()
+        }
     }
 
     /// The "I don't drag things" escape hatch. Opens /Applications in a
@@ -175,9 +223,14 @@ struct DropView: View {
 
     // RFO2 — Both input methods pass through the drive gate and scope decision.
     // The confirmation chooses a wider scan; it does not bypass the later file review.
-    private func requestInvestigation(_ url: URL) {
+    private func requestInvestigation(_ url: URL, animated: Bool = false) {
         guard InternalDrivePolicy.allows(url) else {
+            withAnimation(ChuckMotion.hover) { lidOpen = 0 }
             errorMessage = "Choose an app on this Mac's internal startup drive. External drives and network volumes are excluded."
+            return
+        }
+        if animated {
+            playChuck(url) { requestInvestigation(url) }
             return
         }
         if expandedSearch {

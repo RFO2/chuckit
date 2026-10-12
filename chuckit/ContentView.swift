@@ -29,6 +29,19 @@ private enum Phase {
     case done(targetName: String, trashed: Int, failed: [DeletionService.Failure], trashedBytes: Int64, notices: [String], restorable: [URL: URL])
 }
 
+private extension Phase {
+    /// Identity for screen transitions.
+    var key: Int {
+        switch self {
+        case .drop: 0
+        case .scanning: 1
+        case .review: 2
+        case .deleting: 3
+        case .done: 4
+        }
+    }
+}
+
 /// A tiny bridge so the detached deletion engine can report progress.
 /// @MainActor-isolated (and therefore Sendable): the engine can hold it
 /// across isolation domains, and every `set` hops home to the UI thread.
@@ -49,6 +62,11 @@ struct ContentView: View {
     @State private var invalidAppMessage: String?
     @State private var investigation: Task<Void, Never>?
     @StateObject private var scanner = RelatedFileScanner()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var screenTransition: AnyTransition {
+        reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.985))
+    }
 
     var body: some View {
         Group {
@@ -90,6 +108,8 @@ struct ContentView: View {
                 )
             }
         }
+        .transition(screenTransition)
+        .animation(reduceMotion ? ChuckMotion.fade : ChuckMotion.screen, value: phase.key)
         .frame(minWidth: 520, minHeight: 640)
         .background(ChuckItPalette.surround)
         .preferredColorScheme(.light)
@@ -242,6 +262,64 @@ private struct DoneView: View {
     @State private var showingPermissionHelp = false
     @State private var undoMessage: String?
     @State private var undoFailures: [(url: URL, reason: String)] = []
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var shownBytes: Double = 0
+    @State private var wobble = 0
+    @State private var puff = 0
+    @State private var lidOpen: Double = 0
+    @State private var undoIcon: NSImage?
+    @State private var iconOut = false
+
+    /// The chucked app's Trash location, for the undo fly-out icon.
+    private var trashedAppURL: URL? {
+        restorable.first { $0.key.pathExtension.lowercased() == "app" }?.value
+    }
+
+    private var can: some View {
+        ChuckCanFigure(width: 64, lidOpen: lidOpen)
+            .keyframeAnimator(initialValue: 0.0, trigger: wobble) { content, angle in
+                content.rotationEffect(.degrees(angle), anchor: .bottom)
+            } keyframes: { _ in
+                SpringKeyframe(-6, duration: 0.12, spring: .snappy)
+                SpringKeyframe(4.5, duration: 0.14, spring: .snappy)
+                SpringKeyframe(-2.5, duration: 0.14, spring: .snappy)
+                SpringKeyframe(0, duration: 0.3, spring: .smooth)
+            }
+            .overlay(alignment: .top) { DustPuffs(trigger: puff).offset(y: 6) }
+            .overlay(alignment: .top) {
+                if let undoIcon {
+                    FlyingAppIcon(image: undoIcon)
+                        .scaleEffect(iconOut ? 0.75 : 0.2)
+                        .offset(y: iconOut ? -58 : 14)
+                        .opacity(iconOut ? 1 : 0)
+                }
+            }
+            .padding(.top, 8)
+    }
+
+    /// Reverse of the drop: lid opens and the app flies back out.
+    private func undo() {
+        undoIcon = trashedAppURL.map { NSWorkspace.shared.icon(forFile: $0.path) }
+        let result = DeletionService.restore(restorable)
+        let finish = {
+            undoFailures = result.failed
+            undoMessage = "\(result.restored.count) of \(restorable.count) items restored to their original locations." + (result.failed.isEmpty ? "" : " These couldn't be restored:")
+        }
+        guard !reduceMotion else { withAnimation(ChuckMotion.fade, finish); undoIcon = nil; return }
+        ChuckMotion.tap()
+        withAnimation(ChuckMotion.lidOpen) { lidOpen = 1 }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+            withAnimation(.spring(duration: 0.5, bounce: 0.28)) { iconOut = true }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            withAnimation(ChuckMotion.lidSnap) { lidOpen = 0 }
+            ChuckMotion.thunk()
+            withAnimation(ChuckMotion.screen, finish)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
+            withAnimation(ChuckMotion.fade) { iconOut = false }
+        }
+    }
 
     private var needsPermissionHelp: Bool {
         failed.contains { $0.permissionHelp != nil }
@@ -256,6 +334,7 @@ private struct DoneView: View {
     var body: some View {
         VStack(spacing: 16) {
             Spacer()
+            can
             if failed.isEmpty {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 56))
@@ -270,7 +349,7 @@ private struct DoneView: View {
                 Text("\(targetName) didn't go quietly.")
                     .font(.title2).bold()
             }
-            Text("\(trashedCount) items moved to Trash · \(ByteCountFormatter.string(fromByteCount: trashedBytes, countStyle: .file)) in Trash")
+            RollingTrashSummary(count: trashedCount, bytes: shownBytes)
                 .foregroundColor(.secondary)
             Text("Open Trash in the Dock to recover items. Moving items to Trash does not free disk space.")
                 .font(.caption)
@@ -326,11 +405,7 @@ private struct DoneView: View {
                 }
             } else if !restorable.isEmpty {
                 // One-click undo for this chuck only; items go back to where they were.
-                Button("Undo last chuck") {
-                    let result = DeletionService.restore(restorable)
-                    undoFailures = result.failed
-                    undoMessage = "\(result.restored.count) of \(restorable.count) items restored to their original locations." + (result.failed.isEmpty ? "" : " These couldn't be restored:")
-                }.buttonStyle(.link)
+                Button("Undo last chuck", action: undo).buttonStyle(.link)
             }
             Button("Chuck another app", action: onAgain)
                 .buttonStyle(.borderedProminent)
@@ -339,6 +414,15 @@ private struct DoneView: View {
             Spacer()
         }
         .padding(40)
+        .onAppear {
+            guard !reduceMotion else { shownBytes = Double(trashedBytes); return }
+            withAnimation(ChuckMotion.roll.delay(0.15)) { shownBytes = Double(trashedBytes) }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                guard trashedCount > 0 else { return }
+                wobble += 1
+                puff += 1
+            }
+        }
         .sheet(isPresented: $showingPermissionHelp) {
             RemovalPermissionSetup(forApplication: hasBlockedApplication, forFinder: needsFinderAuthorization)
         }

@@ -35,7 +35,18 @@ struct ChuckItApp: App {
         // A standard window with its classic grey title bar — the retro
         // look the design calls for. (An early version hid the title bar
         // entirely; the grey chrome is friendlier and more Mac-like.)
+        .commands {
+            CommandGroup(after: .appSettings) {
+                LidSoundToggle()
+            }
+        }
         .windowResizability(.contentSize)
         .windowToolbarStyle(.unified)
     }
+}
+
+/// App menu › Lid Sound. On by default; stored in UserDefaults.
+private struct LidSoundToggle: View {
+    @AppStorage(ChuckMotion.soundDefaultsKey) private var enabled = true
+    var body: some View { Toggle("Lid Sound", isOn: $enabled) }
 }
