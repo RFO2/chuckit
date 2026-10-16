@@ -30,7 +30,7 @@ struct DeletionConfirmationSheet: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.orange.opacity(0.10), in: RoundedRectangle(cornerRadius: 10))
+                .background(Color.orange.opacity(0.10), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
 
             Toggle("I have reviewed every selected item and unchecked anything I want to keep.", isOn: $reviewedItems)
                 .toggleStyle(.checkbox)

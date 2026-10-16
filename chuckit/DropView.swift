@@ -46,10 +46,10 @@ struct DropView: View {
     var body: some View {
         ZStack(alignment: .bottom) {
             ZStack {
-                RoundedRectangle(cornerRadius: 18)
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .fill(isTargeted ? Color(red: 1, green: 0.94, blue: 0.94) : ChuckItPalette.dropArea)
                     .overlay {
-                        RoundedRectangle(cornerRadius: 18)
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
                             .strokeBorder(Color.secondary.opacity(0.5), style: StrokeStyle(lineWidth: 2, dash: [10, 6]))
                     }
                     .animation(ChuckMotion.hover, value: isTargeted)

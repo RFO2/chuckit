@@ -31,9 +31,8 @@ struct FullDiskAccessSetup: View {
                 step("2", "Turn on Chuckit. If it isn't listed, click + and add this copy of Chuckit.")
                 step("3", "Approve any macOS prompt. Quit and reopen Chuckit, then scan the app again.")
             }
-            .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.white, in: RoundedRectangle(cornerRadius: 12))
+            .glassCard()
 
             Button("Show this app in Finder") {
                 NSWorkspace.shared.activateFileViewerSelecting([Bundle.main.bundleURL])
@@ -104,8 +103,7 @@ struct RemovalPermissionSetup: View {
                 Text("3. Quit and reopen Chuckit after changing a permission, then scan again. Protected macOS system files cannot be removed.")
             }
             .fixedSize(horizontal: false, vertical: true)
-            .padding(16)
-            .background(.white, in: RoundedRectangle(cornerRadius: 12))
+            .glassCard()
             Button("Show this copy of Chuckit in Finder") {
                 NSWorkspace.shared.activateFileViewerSelecting([Bundle.main.bundleURL])
             }.buttonStyle(.link)
