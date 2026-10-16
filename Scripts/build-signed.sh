@@ -6,7 +6,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 dd="${1:-${TMPDIR:-/tmp}/chuckit-dd}"
-xcodebuild -project chuckit.xcodeproj -scheme chuckit -configuration Debug \
+xcodebuild -project chuckit.xcodeproj -scheme chuckit -configuration Debug ENABLE_DEBUG_DYLIB=NO \
   -derivedDataPath "$dd" build CODE_SIGNING_ALLOWED=NO -quiet
 app="$dd/Build/Products/Debug/chuckit.app"
 id="${CHUCKIT_SIGN_ID:-$(security find-identity -v -p codesigning | awk -F'"' '/Apple Development/{print $2; exit}')}"
