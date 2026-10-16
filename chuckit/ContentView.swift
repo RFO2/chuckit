@@ -61,6 +61,7 @@ struct ContentView: View {
     @State private var phase: Phase = .drop
     @State private var invalidAppMessage: String?
     @State private var investigation: Task<Void, Never>?
+    @State private var showingAccessFromMenu = false
     @StateObject private var scanner = RelatedFileScanner()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -129,6 +130,12 @@ struct ContentView: View {
         // Remove the system title item at the SwiftUI level so transitions
         // cannot restore a second label beside the custom wordmark.
         .toolbar(removing: .title)
+        .sheet(isPresented: $showingAccessFromMenu) {
+            FullDiskAccessOnboarding { _ in showingAccessFromMenu = false }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: FullDiskAccess.showNotification)) { _ in
+            showingAccessFromMenu = true
+        }
     }
 
     // MARK: - The story beats
@@ -142,9 +149,14 @@ struct ContentView: View {
             invalidAppMessage = RemovalPolicy.rejectionReason(for: appURL) ?? "Select a valid .app bundle with an executable or bundle identifier."
             return
         }
+        FullDiskAccess.prepareScan()
+        let limited = PrivacyGuard.isActive
         phase = .scanning(target)
         investigation = Task { @MainActor in
-            let result = await scanner.scan(target: target, scope: scope)
+            var result = await scanner.scan(target: target, scope: scope)
+            if limited {
+                result.warnings.insert("Full Disk Access is off, so protected folders were skipped. Choose Grant Full Disk Access… in the chuckit menu to search everywhere.", at: 0)
+            }
             guard !Task.isCancelled else { return }
             phase = .review(result)
         }

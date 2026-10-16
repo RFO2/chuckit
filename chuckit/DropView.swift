@@ -27,6 +27,8 @@ struct DropView: View {
     @State private var isTargeted = false
     @State private var errorMessage: String?
     @State private var showingFullDiskAccessSetup = false
+    @State private var showingOnboarding = false
+    @State private var awaitingAccess: URL?
     @State private var expandedSearch = false
     @State private var pendingExpandedApp: URL?
     @State private var confirmingExpandedSearch = false
@@ -112,7 +114,13 @@ struct DropView: View {
             .padding(.bottom, 24)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .sheet(isPresented: $showingFullDiskAccessSetup) { FullDiskAccessSetup() }
+        .sheet(isPresented: $showingFullDiskAccessSetup) {
+            FullDiskAccessOnboarding { _ in showingFullDiskAccessSetup = false }
+        }
+        // One-time ask before the first scan; the dropped app waits, untouched.
+        .sheet(isPresented: $showingOnboarding, onDismiss: resumeAfterOnboarding) {
+            FullDiskAccessOnboarding { _ in showingOnboarding = false }
+        }
         .alert("Search personal folders on the internal drive?", isPresented: $confirmingExpandedSearch) {
             Button("Cancel", role: .cancel) { pendingExpandedApp = nil }
             Button("Set Up Full Disk Access…") {
@@ -128,9 +136,14 @@ struct DropView: View {
             Text("This includes Desktop, Documents, Downloads and readable user folders on this Mac's internal startup drive only. External drives and network volumes are never searched. macOS may ask for access to protected locations. Enable Full Disk Access for this copy of Chuckit, then quit and reopen it before searching. Review every match and uncheck any personal files you want to keep.")
         }
         .task {
-            if !hasSeenFullDiskAccessSetup {
+            let relaunched = UserDefaults.standard.bool(forKey: FullDiskAccess.relaunchedKey)
+            if !hasSeenFullDiskAccessSetup || relaunched {
                 hasSeenFullDiskAccessSetup = true
-                showingFullDiskAccessSetup = true
+                if FullDiskAccess.isGranted {
+                    UserDefaults.standard.set(false, forKey: FullDiskAccess.relaunchedKey)
+                } else if FullDiskAccess.needsOnboarding {
+                    showingOnboarding = true
+                }
             }
         }
     }
@@ -221,12 +234,24 @@ struct DropView: View {
         }
     }
 
+    private func resumeAfterOnboarding() {
+        guard let url = awaitingAccess else { return }
+        awaitingAccess = nil
+        if !FullDiskAccess.needsOnboarding { requestInvestigation(url, animated: true) }
+    }
+
     // RFO2 — Both input methods pass through the drive gate and scope decision.
     // The confirmation chooses a wider scan; it does not bypass the later file review.
     private func requestInvestigation(_ url: URL, animated: Bool = false) {
         guard InternalDrivePolicy.allows(url) else {
             withAnimation(ChuckMotion.hover) { lidOpen = 0 }
             errorMessage = "Choose an app on this Mac's internal startup drive. External drives and network volumes are excluded."
+            return
+        }
+        if FullDiskAccess.needsOnboarding {
+            withAnimation(ChuckMotion.hover) { lidOpen = 0 }
+            awaitingAccess = url
+            showingOnboarding = true
             return
         }
         if animated {

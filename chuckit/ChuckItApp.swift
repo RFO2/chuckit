@@ -37,6 +37,9 @@ struct ChuckItApp: App {
         // entirely; the grey chrome is friendlier and more Mac-like.)
         .commands {
             CommandGroup(after: .appSettings) {
+                Button("Grant Full Disk Access…") {
+                    NotificationCenter.default.post(name: FullDiskAccess.showNotification, object: nil)
+                }
                 LidSoundToggle()
             }
         }

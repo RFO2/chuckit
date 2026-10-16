@@ -2,8 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>NSAppleEventsUsageDescription</key>
-	<string>Chuckit asks Finder to move only your reviewed items to Trash when macOS refuses a direct move. Finder handles any administrator password prompt.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -17,5 +15,13 @@
 			</array>
 		</dict>
 	</array>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Chuckit asks Finder to move only your reviewed items to Trash when macOS refuses a direct move. Finder handles any administrator password prompt.</string>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>chuckit looks for an app's leftover files here only when you choose the wider search. Nothing is moved until you review it.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>chuckit looks for an app's leftover files here only when you choose the wider search. Nothing is moved until you review it.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>chuckit looks for an app's leftover files here only when you choose the wider search. Nothing is moved until you review it.</string>
 </dict>
 </plist>

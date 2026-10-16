@@ -184,7 +184,9 @@ struct ReviewView: View {
             .padding(.horizontal, ChuckSpace.l)
             .padding(.vertical, ChuckSpace.m)
         }
-        .sheet(isPresented: $showingFullDiskAccessSetup) { FullDiskAccessSetup() }
+        .sheet(isPresented: $showingFullDiskAccessSetup) {
+            FullDiskAccessOnboarding { _ in showingFullDiskAccessSetup = false }
+        }
         .sheet(item: $pendingDeletion) { selection in
             DeletionConfirmationSheet(
                 appName: result.target.name,

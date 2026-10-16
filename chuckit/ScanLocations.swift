@@ -96,3 +96,34 @@ struct ScanLocation {
         return roots.filter { !ScanExclusions.contains($0) && InternalDrivePolicy.allows($0) && fm.fileExists(atPath: $0.path) }.map { ScanLocation(description: $0.path, url: $0) }
     }
 }
+
+// RFO2 — Folders that make macOS raise a privacy prompt (Desktop, Documents,
+// Downloads, media libraries, iCloud Drive, other apps' containers, mail and
+// similar stores, other users' homes). Without Full Disk Access the app never
+// opens them, so a limited scan raises no stacked "Allow" prompts. The app sets
+// the defaults flag before each scan; tests leave it off.
+enum PrivacyGuard {
+    static let defaultsKey = "chuckitAvoidPrivacyPrompts"
+
+    static var isActive: Bool { UserDefaults.standard.bool(forKey: defaultsKey) }
+
+    static func isPromptProne(_ url: URL, home: URL = FileManager.default.homeDirectoryForCurrentUser) -> Bool {
+        let path = url.standardizedFileURL.path
+        let homePath = home.standardizedFileURL.path
+        let protected = ["Desktop", "Documents", "Downloads", "Pictures", "Movies", "Music", "Public",
+                         "Library/Mobile Documents", "Library/CloudStorage", "Library/Containers",
+                         "Library/Group Containers", "Library/Mail", "Library/Messages", "Library/Safari",
+                         "Library/Calendars", "Library/Reminders", "Library/HomeKit", "Library/Suggestions",
+                         "Library/Application Support/AddressBook", "Library/Application Support/CallHistoryDB",
+                         "Library/Application Support/MobileSync", "Library/Application Support/com.apple.TCC",
+                         "Library/Application Support/Knowledge", "Library/IdentityServices", "Library/Metadata",
+                         "Library/Cookies", "Library/Accounts", "Library/Autosave Information"]
+            .map { homePath + "/" + $0 }
+        if protected.contains(where: { path == $0 || path.hasPrefix($0 + "/") }) { return true }
+        // Other users' home folders and removable/network volumes.
+        if path.hasPrefix("/Users/"), !path.hasPrefix(homePath), !path.hasPrefix("/Users/Shared") { return true }
+        return path == "/Volumes" || path.hasPrefix("/Volumes/") || path.hasPrefix("/Network")
+    }
+
+    static func blocks(_ url: URL) -> Bool { isActive && isPromptProne(url) }
+}

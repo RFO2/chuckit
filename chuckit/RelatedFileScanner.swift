@@ -71,7 +71,8 @@ final class RelatedFileScanner: ObservableObject {
         }
         for location in locations ?? ScanLocation.appData(for: target) {
             if Task.isCancelled { break }
-            guard !ScanExclusions.contains(location.url), InternalDrivePolicy.allows(location.url) else { continue }
+            guard !ScanExclusions.contains(location.url), InternalDrivePolicy.allows(location.url),
+                  !PrivacyGuard.blocks(location.url) else { continue }
             // App-specific locations often do not exist; that is not an access denial.
             if DeletionService.isAbsent(location.url) || !fm.isReadableFile(atPath: location.url.path) { continue }
             if (try? location.url.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) == true { continue }
@@ -91,7 +92,7 @@ final class RelatedFileScanner: ObservableObject {
                     iterator.skipDescendants()
                     continue
                 }
-                if ScanExclusions.contains(entry) {
+                if ScanExclusions.contains(entry) || PrivacyGuard.blocks(entry) {
                     iterator.skipDescendants()
                     continue
                 }
