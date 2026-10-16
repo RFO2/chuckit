@@ -52,6 +52,7 @@ struct ReviewView: View {
             HStack(spacing: 14) {
                 Image(nsImage: BundleInspector.icon(for: result.target.url))
                     .resizable()
+                    .interpolation(.high)
                     .frame(width: 52, height: 52)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(result.target.name)
@@ -112,10 +113,7 @@ struct ReviewView: View {
                         Toggle("", isOn: $file.isSelected)
                             .toggleStyle(.checkbox)
                             .labelsHidden()
-                        Image(nsImage: NSWorkspace.shared.icon(forFile: file.url.path))
-                            .resizable()
-                            .interpolation(.high)
-                            .frame(width: 24, height: 24)
+                        CachedFileIcon(url: file.url)
                             .opacity(file.isSelected ? 1 : 0.45)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(file.displayName)
@@ -174,8 +172,8 @@ struct ReviewView: View {
                     .padding(.vertical, 10)
                 }
                 .buttonStyle(.plain)
-                .background(Color.red)
-                .cornerRadius(999)
+                .background(Color.red, in: Capsule())
+                .contentShape(Capsule())
                 .disabled(selected.isEmpty)
                 .opacity(selected.isEmpty ? 0.4 : 1)
                 // The button stays dead until at least one box is checked.
