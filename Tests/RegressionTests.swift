@@ -229,6 +229,39 @@ struct RegressionTests {
         _ = await DeletionService.completeReceipt(for: [fallbackFile], initial: fallbackResult, fallback: noRetry)
         let protectedFallback = await DeletionService.completeReceipt(for: [URL(fileURLWithPath: "/Library")], initial: initial, fallback: noRetry)
         check(protectedFallback.destinations.isEmpty, "Protected folder reached Finder fallback")
-        print("PASS: silent protected/unreadable scan exclusions; internal-drive-only selection, roots, symlinks, sizing, removal and receipts; scan scope, unrelated-file preservation, protected paths, deduplication, recoverable moves and restoration, same-name collisions, seven unusual filenames, missing items, partial failures, cancellation, false receipts, and app-last ordering. No real apps were removed.")
+        // RFO3 — file-safety rules: personal folders, iCloud, credentials, other users,
+        // Apple apps, chuckit itself, the app-data allowlist and shared helper frameworks.
+        let home = URL(fileURLWithPath: "/Users/fixtureuser")
+        func refused(_ p: String) -> Bool { ProtectedLocations.reason(for: URL(fileURLWithPath: p), home: home) != nil }
+        for p in ["/Users/fixtureuser/Documents/Taxes.pdf", "/Users/fixtureuser/Desktop/com.example.fixture.plist", "/Users/fixtureuser/Downloads/Fixture",
+                  "/Users/fixtureuser/Pictures/Fixture", "/Users/fixtureuser/Desktop", "/Users/fixtureuser/Desktop/Fake.app/../Notes.txt",
+                  "/Users/fixtureuser/Library/Mobile Documents/com~apple~CloudDocs/Fixture", "/Users/fixtureuser/Library/CloudStorage/Dropbox/Fixture",
+                  "/Users/fixtureuser/Library/Keychains/login.keychain-db", "/Users/fixtureuser/Library/Mail/V10", "/Users/fixtureuser/.ssh/id_ed25519",
+                  "/Users/fixtureuser/.config", "/Users/someoneelse/Library/Caches/com.example.fixture", "/Users/fixtureuser/Library/Preferences/com.apple.finder.plist",
+                  "/Users/fixtureuser/Fixture Notes.txt", "/Users/fixtureuser/Projects/fixture", "/etc/fixture"] {
+            check(refused(URL(fileURLWithPath: p).standardizedFileURL.path), "Protected location allowed: " + p)
+        }
+        for p in ["/Users/fixtureuser/Library/Caches/com.example.fixture", "/Users/fixtureuser/Library/Application Support/Fixture",
+                  "/Users/fixtureuser/Desktop/Fixture.app", "/Users/fixtureuser/Downloads/Fixture.app", "/Applications/Fixture.app",
+                  "/Library/LaunchDaemons/com.example.fixture.plist", "/Users/fixtureuser/.fixture", "/Users/fixtureuser/.config/fixture",
+                  "/Users/Shared/Fixture"] {
+            check(!refused(p), "Legitimate app-data location refused: " + p)
+        }
+        check(RemovalPolicy.rejectionReason(for: root.appendingPathComponent("Library/Caches/x")) == nil, "Temporary fixture root refused")
+        check(ProtectedLocations.appRefusal(bundleIdentifier: "com.apple.Safari", url: URL(fileURLWithPath: "/Applications/Safari.app")) != nil, "Apple app accepted")
+        check(ProtectedLocations.appRefusal(bundleIdentifier: "toolebag.chuckit", url: URL(fileURLWithPath: "/Applications/chuckit.app"), ownBundleIdentifier: "toolebag.chuckit") != nil, "Chuckit accepted itself")
+        check(ProtectedLocations.appRefusal(bundleIdentifier: "com.example.fixture", url: app, ownBundleIdentifier: "toolebag.chuckit") == nil, "Ordinary app refused")
+        let appleTarget = AppTarget(url: app, name: "Fixture", bundleIdentifier: "com.apple.fixture", teamIdentifier: nil, groupIdentifiers: [], helperBundleIdentifiers: [])
+        let appleRefused = await DeletionService.chuck([related(app)], target: appleTarget, progress: { _ in }, recycler: mustNotRecycle)
+        check(appleRefused.trashed.isEmpty && appleRefused.failed.count == 1, "Apple app reached the recycler")
+        let helpers = MatchEngine.ownedHelperIdentifiers(["com.example.fixture.agent", "org.sparkle-project.Sparkle.Autoupdate", "com.apple.helper", "com.examplex.other"], mainIdentifier: "com.example.fixture")
+        check(helpers == ["com.example.fixture.agent"], "Shared framework helper treated as owned")
+        check(!MatchEngine.matches(fileName: "Fix", target: AppTarget(url: app, name: "Fx", bundleIdentifier: nil, teamIdentifier: nil, groupIdentifiers: [], helperBundleIdentifiers: [])), "Short name matched loosely")
+        let historyLog = root.appendingPathComponent("logs/history.log")
+        ChuckHistory.record(action: "chucked Fixture", moves: [hidden: trash.appendingPathComponent("x")], failures: [(other, "kept")], to: historyLog)
+        ChuckHistory.record(action: "undo", moves: [:], failures: [], to: historyLog)
+        let historyText = (try? String(contentsOf: historyLog, encoding: .utf8)) ?? ""
+        check(historyText.contains("moved  " + hidden.path) && historyText.contains("kept   " + other.path) && historyText.contains("undo"), "History log missing entries")
+        print("PASS: silent protected/unreadable scan exclusions; internal-drive-only selection, roots, symlinks, sizing, removal and receipts; scan scope, unrelated-file preservation, protected paths, deduplication, recoverable moves and restoration, same-name collisions, seven unusual filenames, missing items, partial failures, cancellation, false receipts, app-last ordering, personal/iCloud/credential protection, app-data allowlist, Apple-app and self refusal, shared-helper exclusion and history log. No real apps were removed.")
     }
 }

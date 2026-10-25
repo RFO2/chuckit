@@ -56,6 +56,10 @@ enum DeletionService {
                       recycler: Recycler? = nil,
                       confirmForceQuit: ForceQuitPrompt? = nil) async -> Outcome {
         var failed: [Failure] = []
+        // RFO3 — Defense in depth: never act for an Apple app or chuckit itself.
+        if let refusal = ProtectedLocations.appRefusal(bundleIdentifier: target.bundleIdentifier, url: target.url) {
+            return Outcome(failed: files.map { .init(file: $0, reason: refusal) })
+        }
         let valid = files.filter { file in
             if let reason = RemovalPolicy.rejectionReason(for: file.url) {
                 failed.append(.init(file: file, reason: reason)); return false
@@ -108,6 +112,8 @@ enum DeletionService {
             }
         }
         progress(1)
+        // Real chucks (not test recyclers) are written to a local history log.
+        if recycler == nil { ChuckHistory.record(action: "chucked \(target.name)", moves: restorable, failures: failed.map { ($0.file.url, $0.reason) }) }
         return Outcome(trashed: trashed, failed: failed, notices: notices, restorable: restorable)
     }
 
@@ -150,6 +156,7 @@ enum DeletionService {
                 failed.append((original, error.localizedDescription))
             }
         }
+        ChuckHistory.record(action: "undo", moves: Dictionary(uniqueKeysWithValues: restored.compactMap { o in receipts[o].map { ($0, o) } }), failures: failed.map { ($0.url, $0.reason) })
         return (restored, failed)
     }
 
@@ -458,6 +465,29 @@ enum FinderTrashService {
         }
         return candidates.first { candidate in
             !DeletionService.isAbsent(candidate) && DeletionService.FileIdentity.of(candidate) == identity
+        }
+    }
+}
+
+
+// RFO3 — A plain-text record of every move so nothing disappears silently.
+// ~/Library/Logs/chuckit/history.log lists each original path and where it went
+// in Trash (or why it was skipped). Paths only — never file contents.
+enum ChuckHistory {
+    static var logURL: URL {
+        FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/chuckit/history.log")
+    }
+    static func record(action: String, moves: [URL: URL], failures: [(URL, String)], to log: URL = logURL) {
+        var lines = ["[\(ISO8601DateFormatter().string(from: Date()))] \(action)"]
+        lines += moves.sorted { $0.key.path < $1.key.path }.map { "  moved  \($0.key.path) -> \($0.value.path)" }
+        lines += failures.map { "  kept   \($0.0.path) (\($0.1))" }
+        let text = lines.joined(separator: "\n") + "\n"
+        let fm = FileManager.default
+        try? fm.createDirectory(at: log.deletingLastPathComponent(), withIntermediateDirectories: true)
+        if let handle = try? FileHandle(forWritingTo: log) {
+            handle.seekToEndOfFile(); handle.write(Data(text.utf8)); try? handle.close()
+        } else {
+            try? Data(text.utf8).write(to: log, options: .atomic)
         }
     }
 }

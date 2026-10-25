@@ -28,6 +28,17 @@ enum MatchEngine {
         return !suffixes.isEmpty && suffixes.allSatisfy { knownIdentifierSuffixes.contains(String($0)) }
     }
 
+    // RFO3 — Embedded helpers from shared frameworks (e.g. Sparkle's updater,
+    // org.sparkle-project.*) appear inside many apps, so their files are not this
+    // app's alone. Keep only helpers from the same vendor as the main app.
+    static func ownedHelperIdentifiers(_ helpers: [String], mainIdentifier: String?) -> [String] {
+        guard let main = mainIdentifier?.lowercased() else { return [] }
+        let parts = main.split(separator: ".")
+        guard parts.count >= 2 else { return helpers.filter { $0.lowercased().hasPrefix(main + ".") } }
+        let vendor = parts.prefix(2).joined(separator: ".") + "."
+        return helpers.filter { let h = $0.lowercased(); return h.hasPrefix(vendor) && !h.hasPrefix("com.apple.") }
+    }
+
     static func matches(fileName: String, target: AppTarget) -> Bool {
         evidence(fileName: fileName, target: target) != nil
     }

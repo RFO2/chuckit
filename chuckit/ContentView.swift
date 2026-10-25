@@ -146,7 +146,9 @@ struct ContentView: View {
     // drop and only exists in the drop phase, so investigations cannot overlap.
     private func investigate(_ appURL: URL, scope: ScanScope) {
         guard let target = BundleInspector.inspect(appURL: appURL) else {
-            invalidAppMessage = RemovalPolicy.rejectionReason(for: appURL) ?? "Select a valid .app bundle with an executable or bundle identifier."
+            invalidAppMessage = RemovalPolicy.rejectionReason(for: appURL)
+                ?? Bundle(url: appURL).flatMap { ProtectedLocations.appRefusal(bundleIdentifier: $0.bundleIdentifier, url: appURL) }
+                ?? "Select a valid .app bundle with an executable or bundle identifier."
             return
         }
         FullDiskAccess.prepareScan()

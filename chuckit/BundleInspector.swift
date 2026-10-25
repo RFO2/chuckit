@@ -32,6 +32,8 @@ enum BundleInspector {
         guard bundle.executableURL != nil || bundle.bundleIdentifier != nil else {
             return nil
         }
+        // RFO3 — Apple's own apps and chuckit itself are never chuckable.
+        guard ProtectedLocations.appRefusal(bundleIdentifier: bundle.bundleIdentifier, url: appURL) == nil else { return nil }
 
         // CFBundleName is the display name ("Spotify"). Fall back to the
         // folder name minus ".app" — it's usually right.
@@ -44,7 +46,7 @@ enum BundleInspector {
             bundleIdentifier: bundle.bundleIdentifier,
             teamIdentifier: teamIdentifier(for: appURL),
             groupIdentifiers: appGroups(for: appURL),
-            helperBundleIdentifiers: helperIDs(in: appURL)
+            helperBundleIdentifiers: MatchEngine.ownedHelperIdentifiers(helperIDs(in: appURL), mainIdentifier: bundle.bundleIdentifier)
         )
     }
 

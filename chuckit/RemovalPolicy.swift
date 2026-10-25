@@ -91,6 +91,11 @@ enum RemovalPolicy {
         if own.pathExtension == "app", contains(url, in: own) || contains(own, in: url) {
             return "Chuckit cannot remove itself or its containing folder."
         }
+        // RFO3 — Personal files, iCloud data, credentials and other users' homes are
+        // never leftovers, and anything else must sit in a known app-data location.
+        if let reason = ProtectedLocations.reason(for: url.standardizedFileURL) ?? ProtectedLocations.reason(for: url.resolvingSymlinksInPath().standardizedFileURL) {
+            return reason
+        }
         // An ancestor link could redirect a removal operation after review.
         // /var, /tmp and /etc are standard macOS links into /private; Foundation drops the
         // /private prefix inconsistently, so compare both sides without it.
@@ -113,5 +118,75 @@ enum RemovalPolicy {
     // authorization are decided by macOS or Finder, not by this Boolean.
     static func needsAdmin(_ url: URL) -> Bool {
         !FileManager.default.isWritableFile(atPath: url.deletingLastPathComponent().path)
+    }
+}
+
+// RFO3 — File-safety rules shared by scanning and removal.
+// Leftovers may only come from places where apps keep their own data. A user's
+// documents, iCloud Drive, keychains, mail and other people's home folders are
+// refused outright, even if a name looks like the app. A dropped .app bundle is
+// the one thing allowed outside app-data folders (e.g. an app on the Desktop).
+enum ProtectedLocations {
+    /// Personal folders: only an .app bundle sitting there may be chucked.
+    static let personalFolders = ["Desktop", "Documents", "Downloads", "Pictures", "Movies", "Music", "Public"]
+    /// Never touched at all, including everything inside.
+    static let sensitiveFolders = ["Library/Mobile Documents", "Library/CloudStorage", "Library/Keychains",
+        "Library/Mail", "Library/Messages", "Library/Photos", "Library/Safari", "Library/Calendars",
+        "Library/Reminders", "Library/Accounts", "Library/Cookies", "Library/HomeKit", "Library/Notes",
+        "Library/Application Support/AddressBook", "Library/Application Support/MobileSync",
+        "Library/Application Support/CallHistoryDB", "Library/Application Support/com.apple.TCC",
+        "Library/Application Support/iCloud", "Library/Containers/com.apple.Notes",
+        "Library/Group Containers/group.com.apple.notes",
+        ".ssh", ".gnupg", ".aws", ".kube", ".docker", ".config", ".local", ".Trash"]
+    /// Where an app's own leftovers can legitimately live.
+    static func allowedRoots(home: String) -> [String] {
+        ["/Applications", "/Library", "/Users/Shared", "/usr/local", "/opt", "/private/var/folders", "/var/folders",
+         "/private/tmp", "/tmp", home + "/Library", home + "/Applications"]
+    }
+
+    static func reason(for url: URL, home: URL = FileManager.default.homeDirectoryForCurrentUser) -> String? {
+        let path = url.path
+        let homePath = home.standardizedFileURL.path
+        let isApp = url.pathExtension.lowercased() == "app"
+        func under(_ root: String) -> Bool { path == root || path.hasPrefix(root + "/") }
+        for folder in sensitiveFolders where under(homePath + "/" + folder) {
+            // ~/.config itself is protected; a single app's folder inside it may go.
+            if folder == ".config" || folder == ".local", path != homePath + "/" + folder { continue }
+            return "Personal data, iCloud and credential folders are protected. Chuckit never removes them."
+        }
+        for folder in personalFolders where under(homePath + "/" + folder) {
+            if isApp && path != homePath + "/" + folder { return nil }
+            return "Your personal files (Desktop, Documents, Downloads, Pictures, Movies, Music) are protected. Only an app itself can be chucked from there."
+        }
+        // Other people's home folders are off limits.
+        for usersRoot in ["/Users", "/System/Volumes/Data/Users"] where path.hasPrefix(usersRoot + "/") {
+            let owner = path.dropFirst(usersRoot.count + 1).split(separator: "/").first.map(String.init) ?? ""
+            if owner != "Shared" && usersRoot + "/" + owner != homePath && !homePath.hasPrefix(usersRoot + "/" + owner + "/") && homePath != usersRoot + "/" + owner {
+                return "Files in another person's home folder are protected."
+            }
+        }
+        if isApp { return nil }
+        // Apple's own data under a Library folder stays put.
+        if path.contains("/Library/"), url.lastPathComponent.lowercased().hasPrefix("com.apple.") {
+            return "Apple system data is protected."
+        }
+        // Hidden per-app folders directly in the home folder (~/.someapp) are allowed.
+        if path.hasPrefix(homePath + "/.") {
+            let first = path.dropFirst(homePath.count + 1).split(separator: "/").first.map(String.init) ?? ""
+            if first.hasPrefix(".") && first.count > 1 { return nil }
+        }
+        let temp = URL(fileURLWithPath: NSTemporaryDirectory()).resolvingSymlinksInPath().standardizedFileURL.path
+        if (allowedRoots(home: homePath) + [temp]).contains(where: under) { return nil }
+        return "Chuckit only removes leftovers from app-data folders such as ~/Library. This item is somewhere personal files may live, so it was left alone."
+    }
+
+    // RFO3 — Apple's own apps (and chuckit) are never chuckable.
+    static func appRefusal(bundleIdentifier: String?, url: URL, ownBundleIdentifier: String? = Bundle.main.bundleIdentifier) -> String? {
+        let id = bundleIdentifier?.lowercased() ?? ""
+        if id.hasPrefix("com.apple.") { return "This is an Apple app that is part of macOS. Chuckit leaves Apple's apps alone." }
+        if let own = ownBundleIdentifier?.lowercased(), !own.isEmpty, id == own || id.hasPrefix(own + ".") {
+            return "Chuckit can't chuck itself."
+        }
+        return nil
     }
 }
