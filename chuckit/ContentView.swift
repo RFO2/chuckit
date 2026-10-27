@@ -1,26 +1,26 @@
 // RFO2 — ContentView.swift
-// Owns the application workflow and screen transitions.
-// Views communicate through callbacks; services perform inspection, scanning
-// and Trash work. Phase keeps the state needed by the currently visible screen.
-// See DEVELOPMENT.md for the full workflow and file map.
+// RFO2 — Owns the application workflow and screen transitions.
+// RFO2 — Views communicate through callbacks; services perform inspection, scanning
+// RFO2 — and Trash work. Phase keeps the state needed by the currently visible screen.
+// RFO2 — See DEVELOPMENT.md for the full workflow and file map.
 
 // RFO2 — original design notes
-//  The hallway between the three rooms. chuckit is a tiny state machine:
+// RFO2 — The hallway between the three rooms. chuckit is a tiny state machine:
 //
-//      drop → scanning → review → deleting → done
-//                          ↘ (user goes back) drop
+// RFO2 — drop → scanning → review → deleting → done
+// RFO2 — ↘ (user goes back) drop
 //
-//  One enum, one switch. Every screen is dumb about the others — DropView
-//  doesn't know ReviewView exists, and that's why this file is the only
-//  place allowed to know the whole story.
+// RFO2 — One enum, one switch. Every screen is dumb about the others — DropView
+// RFO2 — doesn't know ReviewView exists, and that's why this file is the only
+// RFO2 — place allowed to know the whole story.
 //
 
 import Combine
 import SwiftUI
 
-/// Where the user is in the story.
+/// RFO2 — Where the user is in the story.
 // RFO2 — Each phase carries only the data its screen needs. Returning to drop creates
-// a new investigation; review selections belong to their own result snapshot.
+// RFO2 — a new investigation; review selections belong to their own result snapshot.
 private enum Phase {
     case drop
     case scanning(AppTarget)
@@ -30,7 +30,7 @@ private enum Phase {
 }
 
 private extension Phase {
-    /// Identity for screen transitions.
+    /// RFO2 — Identity for screen transitions.
     var key: Int {
         switch self {
         case .drop: 0
@@ -42,16 +42,16 @@ private extension Phase {
     }
 }
 
-/// A tiny bridge so the detached deletion engine can report progress.
+/// RFO2 — A tiny bridge so the detached deletion engine can report progress.
 /// @MainActor-isolated (and therefore Sendable): the engine can hold it
-/// across isolation domains, and every `set` hops home to the UI thread.
+/// RFO2 — across isolation domains, and every `set` hops home to the UI thread.
 @MainActor
 final class DeleteProgressBridge: ObservableObject {
     @Published var value: Double = 0
 
-    /// Called from the deletion engine (any thread). The @MainActor
-    /// isolation hops it to the main thread, where the @Published
-    /// property — and the UI — live.
+    /// RFO2 — Called from the deletion engine (any thread). The @MainActor
+    /// RFO2 — isolation hops it to the main thread, where the @Published
+    /// RFO2 — property — and the UI — live.
     func set(_ newValue: Double) {
         value = newValue
     }
@@ -117,8 +117,8 @@ struct ContentView: View {
         .alert("Cannot uninstall this item", isPresented: Binding(get: { invalidAppMessage != nil }, set: { if !$0 { invalidAppMessage = nil } })) {
             Button("OK") { invalidAppMessage = nil }
         } message: { Text(invalidAppMessage ?? "") }
-        // The wordmark rides in the title bar: black chuck, red it,
-        // centered like a proper Mac app.
+        // RFO2 — The wordmark rides in the title bar: black chuck, red it,
+        // RFO2 — centered like a proper Mac app.
         .toolbar {
             ToolbarItem(placement: .principal) {
                 ChuckItWordmark(size: 15, weight: .bold)
@@ -127,8 +127,8 @@ struct ContentView: View {
         }
         .toolbarBackground(ChuckItPalette.titlebar, for: .windowToolbar)
         .toolbarBackgroundVisibility(.visible, for: .windowToolbar)
-        // Remove the system title item at the SwiftUI level so transitions
-        // cannot restore a second label beside the custom wordmark.
+        // RFO2 — Remove the system title item at the SwiftUI level so transitions
+        // RFO2 — cannot restore a second label beside the custom wordmark.
         .toolbar(removing: .title)
         .sheet(isPresented: $showingAccessFromMenu) {
             FullDiskAccessOnboarding { _ in showingAccessFromMenu = false }
@@ -140,10 +140,10 @@ struct ContentView: View {
 
     // MARK: - The story beats
 
-    /// An app was dropped. Identify the suspect, then start the scan.
+    /// RFO2 — An app was dropped. Identify the suspect, then start the scan.
     // RFO2 — Validate and inspect the bundle before starting asynchronous scanning.
-    // Cancellation is checked before presenting a result. DropView admits one app per
-    // drop and only exists in the drop phase, so investigations cannot overlap.
+    // RFO2 — Cancellation is checked before presenting a result. DropView admits one app per
+    // RFO2 — drop and only exists in the drop phase, so investigations cannot overlap.
     private func investigate(_ appURL: URL, scope: ScanScope) {
         guard let target = BundleInspector.inspect(appURL: appURL) else {
             invalidAppMessage = RemovalPolicy.rejectionReason(for: appURL)
@@ -164,11 +164,11 @@ struct ContentView: View {
         }
     }
 
-    /// The user reviewed the evidence and pulled the trigger.
-    /// We move to the deleting room first so there's a progress bar to
-    /// watch — then the engine reports back when it's done.
+    /// RFO2 — The user reviewed the evidence and pulled the trigger.
+    /// RFO2 — We move to the deleting room first so there's a progress bar to
+    /// RFO2 — watch — then the engine reports back when it's done.
     // RFO2 — The confirmed selection becomes the deletion service input. Report only the
-    // bytes associated with confirmed Trash moves, never reclaimed disk capacity.
+    // RFO2 — bytes associated with confirmed Trash moves, never reclaimed disk capacity.
     private func chuck(result: ScanResult, selected: [RelatedFile]) {
         let name = result.target.name
         let bridge = DeleteProgressBridge()
@@ -181,7 +181,7 @@ struct ContentView: View {
                     Task { await bridge.set(value) }
                 },
                 confirmForceQuit: { names in
-                    // The app ignored a polite quit (often an unsaved-changes dialog).
+                    // RFO2 — The app ignored a polite quit (often an unsaved-changes dialog).
                     let alert = NSAlert()
                     alert.messageText = "\(names.joined(separator: ", ")) is still running."
                     alert.informativeText = "It didn't quit within 10 seconds. Force quitting discards any unsaved changes."
@@ -190,7 +190,7 @@ struct ContentView: View {
                     return alert.runModal() == .alertFirstButtonReturn
                 }
             )
-            // Report only confirmed moves. Trashed bytes have not been freed.
+            // RFO2 — Report only confirmed moves. Trashed bytes have not been freed.
             let movedBytes = outcome.trashed.reduce(0) { $0 + $1.sizeBytes }
             await MainActor.run {
                 phase = .done(
@@ -208,9 +208,9 @@ struct ContentView: View {
 
 // MARK: - The scanning room
 
-/// The in-between screen: the can, a progress bar, and an honest account
-/// of which drawer we're currently opening. A frozen UI during a scan
-/// feels broken; a narrated one feels fast.
+/// RFO2 — The in-between screen: the can, a progress bar, and an honest account
+/// RFO2 — of which drawer we're currently opening. A frozen UI during a scan
+/// RFO2 — feels broken; a narrated one feels fast.
 private struct ScanProgressView: View {
     let target: AppTarget
     @ObservedObject var scanner: RelatedFileScanner
@@ -235,7 +235,7 @@ private struct ScanProgressView: View {
 
 // MARK: - Moving to Trash
 
-/// Items are moved to Trash while the user watches progress.
+/// RFO2 — Items are moved to Trash while the user watches progress.
 private struct DeleteProgressView: View {
     let targetName: String
     @ObservedObject var bridge: DeleteProgressBridge
@@ -259,12 +259,12 @@ private struct DeleteProgressView: View {
 
 // MARK: - The aftermath
 
-/// The deed is done. We report exactly what happened — how many files,
-/// how much space, and anything that survived, WITH the reason. "Couldn't
-/// delete" without a why is a shrug; a reason is accountability. Honesty
-/// here is what earns the next launch.
+/// RFO2 — The deed is done. We report exactly what happened — how many files,
+/// RFO2 — how much space, and anything that survived, WITH the reason. "Couldn't
+/// RFO2 — delete" without a why is a shrug; a reason is accountability. Honesty
+/// RFO2 — here is what earns the next launch.
 // RFO2 — The final screen reports both successful moves and per-item failures.
-// It is an operation receipt, not a claim that every possible leftover was found.
+// RFO2 — It is an operation receipt, not a claim that every possible leftover was found.
 private struct DoneView: View {
     let targetName: String
     let trashedCount: Int
@@ -284,7 +284,7 @@ private struct DoneView: View {
     @State private var undoIcon: NSImage?
     @State private var iconOut = false
 
-    /// The chucked app's Trash location, for the undo fly-out icon.
+    /// RFO2 — The chucked app's Trash location, for the undo fly-out icon.
     private var trashedAppURL: URL? {
         restorable.first { $0.key.pathExtension.lowercased() == "app" }?.value
     }
@@ -311,7 +311,7 @@ private struct DoneView: View {
             .padding(.top, 8)
     }
 
-    /// Reverse of the drop: lid opens and the app flies back out.
+    /// RFO2 — Reverse of the drop: lid opens and the app flies back out.
     private func undo() {
         undoIcon = trashedAppURL.map { NSWorkspace.shared.icon(forFile: $0.path) }
         let result = DeletionService.restore(restorable)
@@ -349,7 +349,7 @@ private struct DoneView: View {
         VStack(spacing: ChuckSpace.m) {
             Spacer()
             can
-            // One hero: the size now sitting in Trash.
+            // RFO2 — One hero: the size now sitting in Trash.
             VStack(spacing: 4) {
                 RollingBytes(bytes: shownBytes)
                 Text("in Trash")
@@ -384,7 +384,7 @@ private struct DoneView: View {
                 .glassCard()
             }
             if !failed.isEmpty {
-                // Every survivor gets named WITH its reason. No shrugs.
+                // RFO2 — Every survivor gets named WITH its reason. No shrugs.
                 ScrollView { VStack(alignment: .leading, spacing: 4) {
                     Text("Couldn't move to Trash:")
                         .font(.caption).bold()
@@ -422,7 +422,7 @@ private struct DoneView: View {
                     Text("• \(failure.url.path): \(failure.reason)").font(.caption2).foregroundColor(.secondary).textSelection(.enabled)
                 }
             } else if !restorable.isEmpty {
-                // One-click undo for this chuck only; items go back to where they were.
+                // RFO2 — One-click undo for this chuck only; items go back to where they were.
                 Button("Undo last chuck", action: undo).buttonStyle(.link)
             }
             Button("Chuck another app", action: onAgain)

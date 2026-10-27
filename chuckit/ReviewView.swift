@@ -1,28 +1,28 @@
 // RFO2 — ReviewView.swift
-// Keeps an editable copy of the scan results for the checkboxes.
-// The user sees the candidate path, size and matching evidence before a
-// snapshot of the selected rows is passed through the confirmation sheet.
-// See DEVELOPMENT.md for the full workflow and file map.
+// RFO2 — Keeps an editable copy of the scan results for the checkboxes.
+// RFO2 — The user sees the candidate path, size and matching evidence before a
+// RFO2 — snapshot of the selected rows is passed through the confirmation sheet.
+// RFO2 — See DEVELOPMENT.md for the full workflow and file map.
 
 // RFO2 — original design notes
-//  Room two: the evidence board. This screen is the entire moral center
-//  of chuckit — everything before it was investigation, everything after
-//  it goes to Trash. So this screen has one job: make sure the user actually
-//  sees what they're about to move to recoverable Trash.
+// RFO2 — Room two: the evidence board. This screen is the entire moral center
+// RFO2 — of chuckit — everything before it was investigation, everything after
+// RFO2 — it goes to Trash. So this screen has one job: make sure the user actually
+// RFO2 — sees what they're about to move to recoverable Trash.
 //
-//  That's why every row shows the what (filename), the where (which
-//  drawer we found it in), and the how-much (size). And that's why every
-//  row has a checkbox. Trust, but verify — then chuck.
+// RFO2 — That's why every row shows the what (filename), the where (which
+// RFO2 — drawer we found it in), and the how-much (size). And that's why every
+// RFO2 — row has a checkbox. Trust, but verify — then chuck.
 //
 
 import AppKit
 import SwiftUI
 
-/// Shows the case file and waits for the verdict. Nothing here deletes
-/// anything — it just reports back which files the user kept checked.
+/// RFO2 — Shows the case file and waits for the verdict. Nothing here deletes
+/// RFO2 — anything — it just reports back which files the user kept checked.
 struct ReviewView: View {
     let result: ScanResult
-    /// Called with the checked files when the user pulls the trigger.
+    /// RFO2 — Called with the checked files when the user pulls the trigger.
     var onChuck: ([RelatedFile]) -> Void
     var onBack: () -> Void
 
@@ -31,24 +31,24 @@ struct ReviewView: View {
     @State private var showingFullDiskAccessSetup = false
 
     // RFO2 — Copy the candidate array into local State. Editing a checkbox should not
-    // mutate the scan service or a result used by another screen.
+    // RFO2 — mutate the scan service or a result used by another screen.
     init(result: ScanResult, onChuck: @escaping ([RelatedFile]) -> Void, onBack: @escaping () -> Void) {
         self.result = result
         self.onChuck = onChuck
         self.onBack = onBack
-        // Local mutable copy: the checkboxes live here, the original
-        // case file stays pristine.
+        // RFO2 — Local mutable copy: the checkboxes live here, the original
+        // RFO2 — case file stays pristine.
         _files = State(initialValue: result.files)
     }
 
     // RFO2 — Derive the selected rows and totals from one local array so the confirmation
-    // count and submitted files agree with what the user currently sees.
+    // RFO2 — count and submitted files agree with what the user currently sees.
     private var selected: [RelatedFile] { files.filter(\.isSelected) }
     private var selectedBytes: Int64 { selected.reduce(0) { $0 + $1.sizeBytes } }
 
     var body: some View {
         VStack(spacing: 0) {
-            // The suspect, front and center.
+            // RFO2 — The suspect, front and center.
             HStack(spacing: 14) {
                 Image(nsImage: BundleInspector.icon(for: result.target.url))
                     .resizable()
@@ -90,8 +90,8 @@ struct ReviewView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, ChuckSpace.l)
 
-            // Select all / none — because unchecking 47 boxes one by one
-            // is how you get users to stop reading the list.
+            // RFO2 — Select all / none — because unchecking 47 boxes one by one
+            // RFO2 — is how you get users to stop reading the list.
             HStack {
                 Spacer()
                 Button("Select all") { setAll(true) }
@@ -103,11 +103,11 @@ struct ReviewView: View {
             .padding(.horizontal, ChuckSpace.l)
             .padding(.vertical, ChuckSpace.xs)
 
-            // The evidence board itself.
+            // RFO2 — The evidence board itself.
             List {
                 ForEach($files) { $file in
-                    // $file is the binding (for the checkbox); file is the
-                    // plain value (for everything we just display).
+                    // RFO2 — $file is the binding (for the checkbox); file is the
+                    // RFO2 — plain value (for everything we just display).
                     let file = $file.wrappedValue
                     HStack(alignment: .center, spacing: ChuckSpace.s) {
                         Toggle("", isOn: $file.isSelected)
@@ -118,8 +118,8 @@ struct ReviewView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(file.displayName)
                                 .font(.body)
-                                // Unchecked files fade — the eye should go
-                                // to what's about to die.
+                                // RFO2 — Unchecked files fade — the eye should go
+                                // RFO2 — to what's about to die.
                                 .opacity(file.isSelected ? 1 : 0.45)
                             Text(file.evidence).font(.caption2).foregroundColor(.secondary)
                             Text("\(file.locationDescription) · \(file.url.deletingLastPathComponent().path)")
@@ -129,8 +129,8 @@ struct ReviewView: View {
                                 .truncationMode(.middle)
                         }
                         Spacer(minLength: ChuckSpace.s)
-                        // The little lock warns: this one needs your
-                        // admin password at chuck time.
+                        // RFO2 — The little lock warns: this one needs your
+                        // RFO2 — admin password at chuck time.
                         if file.requiresAdmin {
                             Image(systemName: "lock.fill")
                                 .font(.caption)
@@ -154,7 +154,7 @@ struct ReviewView: View {
             .glassCard(padding: ChuckSpace.xs)
             .padding(.horizontal, ChuckSpace.l)
 
-            // The trigger.
+            // RFO2 — The trigger.
             HStack {
                 Text("\(ByteCountFormatter.string(fromByteCount: selectedBytes, countStyle: .file)) in \(selected.count) files")
                     .foregroundColor(.secondary)
@@ -176,8 +176,8 @@ struct ReviewView: View {
                 .contentShape(Capsule())
                 .disabled(selected.isEmpty)
                 .opacity(selected.isEmpty ? 0.4 : 1)
-                // The button stays dead until at least one box is checked.
-                // Chucking nothing should be impossible, not just pointless.
+                // RFO2 — The button stays dead until at least one box is checked.
+                // RFO2 — Chucking nothing should be impossible, not just pointless.
             }
             .padding(.horizontal, ChuckSpace.l)
             .padding(.vertical, ChuckSpace.m)

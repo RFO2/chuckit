@@ -1,4 +1,5 @@
 #!/bin/bash
+# RFO2 — Builds the configured distribution artifact; signing remains a separate release operation.
 # Build chuckit, then sign it with a stable local Apple Development identity so
 # macOS privacy grants (Full Disk Access) survive rebuilds. Ad-hoc / unsigned
 # builds get a new code identity every build and lose the grant.

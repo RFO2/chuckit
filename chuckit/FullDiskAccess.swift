@@ -1,7 +1,7 @@
 // RFO2 — FullDiskAccess.swift
-// One-time Full Disk Access onboarding. Detection only probes files that are
-// readable with Full Disk Access and silently denied without it, so checking
-// never raises a macOS prompt. Only the user can grant access in Settings.
+// RFO2 — One-time Full Disk Access onboarding. Detection only probes files that are
+// RFO2 — readable with Full Disk Access and silently denied without it, so checking
+// RFO2 — never raises a macOS prompt. Only the user can grant access in Settings.
 
 import AppKit
 import Combine
@@ -9,13 +9,13 @@ import SwiftUI
 
 enum FullDiskAccess {
     static let skippedKey = "fullDiskAccessOnboardingSkipped"
-    /// Set when chuckit relaunched itself to pick up a fresh grant, so it never loops.
+    /// RFO2 — Set when chuckit relaunched itself to pick up a fresh grant, so it never loops.
     static let relaunchedKey = "fullDiskAccessRelaunched"
     static let showNotification = Notification.Name("chuckitShowFullDiskAccess")
     static let settingsURL = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles")!
 
-    /// True when protected stores are readable. Uses open(), which fails quietly
-    /// with EPERM when access is off; these locations never show a prompt.
+    /// RFO2 — True when protected stores are readable. Uses open(), which fails quietly
+    /// RFO2 — with EPERM when access is off; these locations never show a prompt.
     static var isGranted: Bool {
         let home = FileManager.default.homeDirectoryForCurrentUser
         let tcc = home.appendingPathComponent("Library/Application Support/com.apple.TCC/TCC.db").path
@@ -27,17 +27,17 @@ enum FullDiskAccess {
         return (try? FileManager.default.contentsOfDirectory(atPath: safari)) != nil
     }
 
-    /// Onboarding is due before a scan when access is off and the user hasn't chosen "Not now".
+    /// RFO2 — Onboarding is due before a scan when access is off and the user hasn't chosen "Not now".
     static var needsOnboarding: Bool {
         !isGranted && !UserDefaults.standard.bool(forKey: skippedKey)
     }
 
-    /// Record the scan mode: without access, prompt-prone folders are skipped.
+    /// RFO2 — Record the scan mode: without access, prompt-prone folders are skipped.
     static func prepareScan() {
         UserDefaults.standard.set(!isGranted, forKey: PrivacyGuard.defaultsKey)
     }
 
-    /// macOS often applies a new grant only to a fresh process.
+    /// RFO2 — macOS often applies a new grant only to a fresh process.
     static func relaunch() {
         UserDefaults.standard.set(true, forKey: relaunchedKey)
         let task = Process()
@@ -48,9 +48,9 @@ enum FullDiskAccess {
     }
 }
 
-/// The one-time ask: why, one primary button, and a quiet way out.
+/// RFO2 — The one-time ask: why, one primary button, and a quiet way out.
 struct FullDiskAccessOnboarding: View {
-    /// Called with true when access is confirmed, false for "Not now".
+    /// RFO2 — Called with true when access is confirmed, false for "Not now".
     var onResolved: (Bool) -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -60,7 +60,7 @@ struct FullDiskAccessOnboarding: View {
     @State private var checkShown = false
     @State private var resolved = false
     @State private var relaunching = false
-    /// After a self-relaunch that still found no access, offer help instead of relaunching again.
+    /// RFO2 — After a self-relaunch that still found no access, offer help instead of relaunching again.
     @State private var alreadyRelaunched = UserDefaults.standard.bool(forKey: FullDiskAccess.relaunchedKey)
     private let poll = Timer.publish(every: 1.2, on: .main, in: .common).autoconnect()
 
@@ -120,7 +120,7 @@ struct FullDiskAccessOnboarding: View {
                     .keyboardShortcut(.defaultAction)
 
                     if openedSettings {
-                        // Switched on but still not detected: the grant applies after a relaunch.
+                        // RFO2 — Switched on but still not detected: the grant applies after a relaunch.
                         Button("Already turned it on? Relaunch chuckit") { FullDiskAccess.relaunch() }
                             .buttonStyle(.link)
                             .font(.caption)
@@ -148,8 +148,8 @@ struct FullDiskAccessOnboarding: View {
         .onReceive(poll) { _ in recheck() }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             recheck()
-            // Back from Settings and still not detected: the switch usually needs a fresh
-            // process. Relaunch once, automatically, with a short note. Never loop.
+            // RFO2 — Back from Settings and still not detected: the switch usually needs a fresh
+            // RFO2 — process. Relaunch once, automatically, with a short note. Never loop.
             guard openedSettings, !resolved, !alreadyRelaunched, !FullDiskAccess.isGranted else { return }
             withAnimation(ChuckMotion.fade) { relaunching = true }
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { FullDiskAccess.relaunch() }
@@ -165,7 +165,7 @@ struct FullDiskAccessOnboarding: View {
         celebrate()
     }
 
-    /// Lid pops, check springs in, then the sheet steps aside.
+    /// RFO2 — Lid pops, check springs in, then the sheet steps aside.
     private func celebrate() {
         guard !resolved else { return }
         resolved = true

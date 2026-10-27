@@ -1,11 +1,11 @@
 // RFO2 — ChuckGlass.swift
-// Shared surface treatment: native material cards, a spacing scale and a
-// quiet row hover. Presentation only; palette and fonts are unchanged.
+// RFO2 — Shared surface treatment: native material cards, a spacing scale and a
+// RFO2 — quiet row hover. Presentation only; palette and fonts are unchanged.
 
 import AppKit
 import SwiftUI
 
-/// One spacing scale for every screen.
+/// RFO2 — One spacing scale for every screen.
 enum ChuckSpace {
     static let xs: CGFloat = 8
     static let s: CGFloat = 12
@@ -20,8 +20,8 @@ private struct GlassCard: ViewModifier {
         let shape = RoundedRectangle(cornerRadius: ChuckSpace.radius, style: .continuous)
         content
             .padding(padding)
-            // Flat card: the palette's white, a crisp hairline and one soft
-            // shadow. No blur, so scrolling content stays cheap to composite.
+            // RFO2 — Flat card: the palette's white, a crisp hairline and one soft
+            // RFO2 — shadow. No blur, so scrolling content stays cheap to composite.
             .background(ChuckItPalette.dropArea, in: shape)
             .overlay { shape.strokeBorder(Color.black.opacity(0.10), lineWidth: 1) }
             .shadow(color: .black.opacity(0.06), radius: 8, y: 2)
@@ -45,13 +45,13 @@ private struct HoverHighlight: ViewModifier {
 }
 
 extension View {
-    /// Flat white card with a hairline edge and soft ambient shadow.
+    /// RFO2 — Flat white card with a hairline edge and soft ambient shadow.
     func glassCard(padding: CGFloat = ChuckSpace.m) -> some View { modifier(GlassCard(padding: padding)) }
-    /// Subtle native-list hover wash.
+    /// RFO2 — Subtle native-list hover wash.
     func hoverHighlight() -> some View { modifier(HoverHighlight()) }
 }
 
-/// Hero freed-space figure that rolls up to its value.
+/// RFO2 — Hero freed-space figure that rolls up to its value.
 struct RollingBytes: View, Animatable {
     var bytes: Double
     var animatableData: Double {
@@ -65,7 +65,7 @@ struct RollingBytes: View, Animatable {
     }
 }
 
-/// File icon loaded once per row, so scrolling never re-asks Launch Services.
+/// RFO2 — File icon loaded once per row, so scrolling never re-asks Launch Services.
 struct CachedFileIcon: View {
     let url: URL
     var size: CGFloat = 24

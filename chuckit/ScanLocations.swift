@@ -1,13 +1,13 @@
 // RFO2 — ScanLocations.swift
-// Defines where each scan mode starts.
-// Normal mode uses app-data drawers and known containers. Wider mode adds
-// internal-drive roots. Choosing a scope does not authorize a removal.
-// See DEVELOPMENT.md for the full workflow and file map.
+// RFO2 — Defines where each scan mode starts.
+// RFO2 — Normal mode uses app-data drawers and known containers. Wider mode adds
+// RFO2 — internal-drive roots. Choosing a scope does not authorize a removal.
+// RFO2 — See DEVELOPMENT.md for the full workflow and file map.
 
 import Foundation
 
 // RFO2 — The user chooses the search scope before an investigation starts.
-// Keeping root selection here makes scope behavior independent of the views.
+// RFO2 — Keeping root selection here makes scope behavior independent of the views.
 enum ScanScope: Equatable, Sendable {
     case appData
     case expanded
@@ -20,8 +20,8 @@ enum ScanScope: Equatable, Sendable {
     }
 }
 
-/// Known system-service trees never contribute uninstall candidates.
-/// Match whole path components, including the APFS Data alias.
+/// RFO2 — Known system-service trees never contribute uninstall candidates.
+/// RFO2 — Match whole path components, including the APFS Data alias.
 enum ScanExclusions {
     static let systemTrees = [
         "/Library/Application Support/Apple/AssetCache",
@@ -47,17 +47,17 @@ struct ScanLocation {
     let url: URL
     var includesRootCandidate = false
     // RFO2 — True for the validated app-data drawers and containers. Review
-    // preselection follows this flag, never a "/Library/" substring in the path.
+    // RFO2 — preselection follows this flag, never a "/Library/" substring in the path.
     var isAppData = false
 
     // RFO2 — Only known app/helper/group containers are added as root candidates.
-    // Avoid walking every container just because a Library directory is nearby.
+    // RFO2 — Avoid walking every container just because a Library directory is nearby.
     static func appData(for target: AppTarget,
                         home: URL = FileManager.default.homeDirectoryForCurrentUser,
                         systemLibrary: URL = URL(fileURLWithPath: "/Library"),
                         temporary: URL? = FileManager.default.temporaryDirectory) -> [ScanLocation] {
-        // Do not enumerate the whole home, Library, other users, or volumes.
-        // Container searches are restricted to identifiers supplied by this app.
+        // RFO2 — Do not enumerate the whole home, Library, other users, or volumes.
+        // RFO2 — Container searches are restricted to identifiers supplied by this app.
         let drawers = ["Application Support", "Preferences", "Caches", "Logs", "Saved Application State", "LaunchAgents", "LaunchDaemons", "PrivilegedHelperTools"]
         var roots = drawers.flatMap { drawer in
             [home.appendingPathComponent("Library/" + drawer), systemLibrary.appendingPathComponent(drawer)]
@@ -81,11 +81,11 @@ struct ScanLocation {
     }
 
     // RFO2 — Every candidate root must pass the startup-volume policy.
-    // Traversal also checks each entry, because a mount can exist below an allowed root.
+    // RFO2 — Traversal also checks each entry, because a mount can exist below an allowed root.
     static var all: [ScanLocation] {
         let fm = FileManager.default, home = fm.homeDirectoryForCurrentUser
-        // Search only the internal startup drive, including readable user folders.
-        // External, network and additional mounted volumes are never added.
+        // RFO2 — Search only the internal startup drive, including readable user folders.
+        // RFO2 — External, network and additional mounted volumes are never added.
         var roots = [home, URL(fileURLWithPath: "/Library"), URL(fileURLWithPath: "/Applications"),
                      URL(fileURLWithPath: "/Users/Shared"), URL(fileURLWithPath: "/usr/local"),
                      URL(fileURLWithPath: "/opt"), URL(fileURLWithPath: "/private/var/folders")]
@@ -98,10 +98,10 @@ struct ScanLocation {
 }
 
 // RFO2 — Folders that make macOS raise a privacy prompt (Desktop, Documents,
-// Downloads, media libraries, iCloud Drive, other apps' containers, mail and
-// similar stores, other users' homes). Without Full Disk Access the app never
-// opens them, so a limited scan raises no stacked "Allow" prompts. The app sets
-// the defaults flag before each scan; tests leave it off.
+// RFO2 — Downloads, media libraries, iCloud Drive, other apps' containers, mail and
+// RFO2 — similar stores, other users' homes). Without Full Disk Access the app never
+// RFO2 — opens them, so a limited scan raises no stacked "Allow" prompts. The app sets
+// RFO2 — the defaults flag before each scan; tests leave it off.
 enum PrivacyGuard {
     static let defaultsKey = "chuckitAvoidPrivacyPrompts"
 
@@ -120,7 +120,7 @@ enum PrivacyGuard {
                          "Library/Cookies", "Library/Accounts", "Library/Autosave Information"]
             .map { homePath + "/" + $0 }
         if protected.contains(where: { path == $0 || path.hasPrefix($0 + "/") }) { return true }
-        // Other users' home folders and removable/network volumes.
+        // RFO2 — Other users' home folders and removable/network volumes.
         if path.hasPrefix("/Users/"), !path.hasPrefix(homePath), !path.hasPrefix("/Users/Shared") { return true }
         return path == "/Volumes" || path.hasPrefix("/Volumes/") || path.hasPrefix("/Network")
     }

@@ -1,7 +1,7 @@
 // RFO2 — RegressionTests.swift
-// Standalone checks use disposable fixture trees and an injected recycler.
-// They exercise selection, scope and recoverable moves without uninstalling
-// real applications. Native Finder authorization remains an integration check.
+// RFO2 — Standalone checks use disposable fixture trees and an injected recycler.
+// RFO2 — They exercise selection, scope and recoverable moves without uninstalling
+// RFO2 — real applications. Native Finder authorization remains an integration check.
 
 import AppKit
 import Foundation
@@ -13,10 +13,19 @@ struct RegressionTests {
         if !condition() { fatalError(message) }
     }
     static func main() async throws {
+        // RFO2 — Fixture scans must not inherit the app's persisted limited-access mode.
+        // RFO2 — The volatile argument domain affects this process only; restore it on exit.
+        let defaults = UserDefaults.standard
+        let previousArguments = defaults.volatileDomain(forName: UserDefaults.argumentDomain)
+        var testArguments = previousArguments
+        testArguments[PrivacyGuard.defaultsKey] = false
+        defaults.setVolatileDomain(testArguments, forName: UserDefaults.argumentDomain)
+        defer { defaults.setVolatileDomain(previousArguments, forName: UserDefaults.argumentDomain) }
         let fm = FileManager.default
         // RFO2 — each run receives a unique fixture root and cleans it on exit.
-        // Test paths and fake applications stay separate from installed software.
-        let root = URL(fileURLWithPath: CommandLine.arguments[1]).resolvingSymlinksInPath().appendingPathComponent("chuckit-fixture-" + UUID().uuidString)
+        // RFO2 — Test paths and fake applications stay separate from installed software.
+        // RFO2 — Use temporary storage: Desktop/Documents are intentionally protected by removal policy.
+        let root = fm.temporaryDirectory.resolvingSymlinksInPath().appendingPathComponent("chuckit-fixture-" + UUID().uuidString)
         try fm.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? fm.removeItem(at: root) }
         func file(_ relative: String) throws -> URL {
@@ -85,7 +94,7 @@ struct RegressionTests {
             try file($0 + "/com.example.fixture.plist")
         }
         // RFO2 — normal scope must find app data without entering personal folders
-        // or an unrelated app's container. Keep those files as preservation sentinels.
+        // RFO2 — or an unrelated app's container. Keep those files as preservation sentinels.
         let normalLocations = ScanLocation.appData(for: target, home: root,
             systemLibrary: root.appendingPathComponent("SystemLibrary"), temporary: nil)
         check(!normalLocations.contains { $0.url == root || $0.url == root.appendingPathComponent("Library") }, "Normal scan enumerates a broad home or Library root")
@@ -117,8 +126,8 @@ struct RegressionTests {
         check(DeletionService.deduplicated([f1,f2,f1]).count == 1, "Nested deletion counted twice")
         let trash = root.appendingPathComponent(".Trash")
         try fm.createDirectory(at: trash, withIntermediateDirectories: true)
-        // A filesystem-backed recycler keeps fixtures recoverable and injects
-        // failures without authorization prompts or touching real user data.
+        // RFO2 — A filesystem-backed recycler keeps fixtures recoverable and injects
+        // RFO2 — failures without authorization prompts or touching real user data.
         let fixtureRecycler: DeletionService.Recycler = { urls in
             var destinations: [URL: URL] = [:]
             for url in urls {
@@ -199,7 +208,7 @@ struct RegressionTests {
         check(skippedDescendant.warnings.isEmpty && !skippedDescendant.files.contains { $0.url == unreadableMatch }, "Unreadable descendant produced a warning or candidate")
         check(fm.fileExists(atPath: unreadableMatch.path), "Skipped unreadable file was modified")
         // RFO2 — a denied move does not identify which macOS permission is missing.
-        // Wrapped errors and user cancellation must retain their distinct meanings.
+        // RFO2 — Wrapped errors and user cancellation must retain their distinct meanings.
         let eperm = NSError(domain: NSPOSIXErrorDomain, code: 1)
         check(DeletionService.isPermissionDenied(eperm), "Permission failure not recognized")
         check(DeletionService.explanation(eperm).contains("does not establish that Full Disk Access is off"), "Permission failure falsely asserts missing FDA")
@@ -215,7 +224,7 @@ struct RegressionTests {
         let dataDenied = await DeletionService.chuck([related(other)], target: target, progress: { _ in }, recycler: permissionRecycler)
         check(dataDenied.failed.first?.permissionHelp == .appData, "Data denial classified as an app")
         check(DeletionService.explanation(NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError)).contains("cancelled"), "Cancellation lacks clear guidance")
-        // Finder execution is verified in the signed native app; this sandbox cannot resolve Finder's scripting dictionary.
+        // RFO2 — Finder execution is verified in the signed native app; this sandbox cannot resolve Finder's scripting dictionary.
         for url in unusual {
             let argument = FinderTrashService.event(for: url).paramDescriptor(forKeyword: AEKeyword(keyDirectObject))?.atIndex(1)?.stringValue
             check(argument == url.path, "Finder path argument was altered or escaped as executable text")
@@ -229,8 +238,8 @@ struct RegressionTests {
         _ = await DeletionService.completeReceipt(for: [fallbackFile], initial: fallbackResult, fallback: noRetry)
         let protectedFallback = await DeletionService.completeReceipt(for: [URL(fileURLWithPath: "/Library")], initial: initial, fallback: noRetry)
         check(protectedFallback.destinations.isEmpty, "Protected folder reached Finder fallback")
-        // RFO3 — file-safety rules: personal folders, iCloud, credentials, other users,
-        // Apple apps, chuckit itself, the app-data allowlist and shared helper frameworks.
+        // RFO2 — RFO3 — file-safety rules: personal folders, iCloud, credentials, other users,
+        // RFO2 — Apple apps, chuckit itself, the app-data allowlist and shared helper frameworks.
         let home = URL(fileURLWithPath: "/Users/fixtureuser")
         func refused(_ p: String) -> Bool { ProtectedLocations.reason(for: URL(fileURLWithPath: p), home: home) != nil }
         for p in ["/Users/fixtureuser/Documents/Taxes.pdf", "/Users/fixtureuser/Desktop/com.example.fixture.plist", "/Users/fixtureuser/Downloads/Fixture",

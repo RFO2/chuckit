@@ -1,8 +1,8 @@
 // RFO2 — DeletionConfirmationSheet.swift
-// Requires a fresh review acknowledgment for each removal attempt.
-// The sheet sends a callback only after acknowledgment and a nonempty selection.
-// It owns no filesystem operation and never stores consent as a preference.
-// See DEVELOPMENT.md for the full workflow and file map.
+// RFO2 — Requires a fresh review acknowledgment for each removal attempt.
+// RFO2 — The sheet sends a callback only after acknowledgment and a nonempty selection.
+// RFO2 — It owns no filesystem operation and never stores consent as a preference.
+// RFO2 — See DEVELOPMENT.md for the full workflow and file map.
 
 import SwiftUI
 
@@ -12,7 +12,7 @@ struct DeletionConfirmationSheet: View {
     var onCancel: () -> Void
     var onDelete: () -> Void
     // RFO2 — Use transient State and reset it on appearance. An acknowledgment from a
-    // previous operation cannot authorize this selection.
+    // RFO2 — previous operation cannot authorize this selection.
     @State private var reviewedItems = false
     private var itemDescription: String { itemCount == 1 ? "item" : "items" }
 
@@ -44,7 +44,7 @@ struct DeletionConfirmationSheet: View {
                     .keyboardShortcut(.cancelAction)
                 Spacer()
                 // RFO2 — Check the acknowledgment inside the action as well as disabling the button.
-                // The callback is the boundary between reviewing and starting the Trash operation.
+                // RFO2 — The callback is the boundary between reviewing and starting the Trash operation.
                 Button("Move \(itemCount) \(itemDescription) to Trash", role: .destructive) {
                     guard reviewedItems, itemCount > 0 else { return }
                     onDelete()

@@ -1,8 +1,8 @@
 // RFO2 — DeletionNotice.swift
-// Central wording for the review acknowledgment.
-// Keeping this text in one place prevents the confirmation screen from
-// drifting away from the actual recoverable Trash behavior.
-// See DEVELOPMENT.md for the full workflow and file map.
+// RFO2 — Central wording for the review acknowledgment.
+// RFO2 — Keeping this text in one place prevents the confirmation screen from
+// RFO2 — drifting away from the actual recoverable Trash behavior.
+// RFO2 — See DEVELOPMENT.md for the full workflow and file map.
 
 import SwiftUI
 

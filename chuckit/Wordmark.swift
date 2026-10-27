@@ -1,8 +1,8 @@
 // RFO2 — Wordmark.swift
-// Shared visual branding and palette for the app screens.
-// The wordmark is composed from text, so it scales with the requested font
-// size and keeps the chuck/it color treatment consistent.
-// See DEVELOPMENT.md for the full workflow and file map.
+// RFO2 — Shared visual branding and palette for the app screens.
+// RFO2 — The wordmark is composed from text, so it scales with the requested font
+// RFO2 — size and keeps the chuck/it color treatment consistent.
+// RFO2 — See DEVELOPMENT.md for the full workflow and file map.
 
 import SwiftUI
 

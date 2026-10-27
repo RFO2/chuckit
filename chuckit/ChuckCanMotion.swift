@@ -1,12 +1,12 @@
 // RFO2 — ChuckCanMotion.swift
-// Motion for the ChuckCan artwork: a lid split from the same image, shared
-// spring timings, the lid sound, haptics, dust puffs and the rolling total.
-// Pure presentation. No colors, fonts or layout styling are introduced here.
+// RFO2 — Motion for the ChuckCan artwork: a lid split from the same image, shared
+// RFO2 — spring timings, the lid sound, haptics, dust puffs and the rolling total.
+// RFO2 — Pure presentation. No colors, fonts or layout styling are introduced here.
 
 import AppKit
 import SwiftUI
 
-/// One vocabulary of springs so every screen moves with the same physics.
+/// RFO2 — One vocabulary of springs so every screen moves with the same physics.
 enum ChuckMotion {
     static let lidOpen = Animation.spring(duration: 0.30, bounce: 0.18)
     static let lidSnap = Animation.spring(duration: 0.38, bounce: 0.42)
@@ -18,7 +18,7 @@ enum ChuckMotion {
 
     static let soundDefaultsKey = "lidSoundEnabled"
 
-    /// A soft system thunk on lid close, quiet and optional.
+    /// RFO2 — A soft system thunk on lid close, quiet and optional.
     static func thunk() {
         let enabled = UserDefaults.standard.object(forKey: soundDefaultsKey) as? Bool ?? true
         guard enabled, let sound = NSSound(named: "Pop")?.copy() as? NSSound else { return }
@@ -26,20 +26,20 @@ enum ChuckMotion {
         sound.play()
     }
 
-    /// Trackpad tap where supported; silently nothing elsewhere.
+    /// RFO2 — Trackpad tap where supported; silently nothing elsewhere.
     static func tap() {
         NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
     }
 }
 
-/// The ChuckCan image drawn as a body plus a hinged lid cut from the same art,
-/// so it stays pixel-identical at rest. lidOpen 0...1, tilt in degrees.
+/// RFO2 — The ChuckCan image drawn as a body plus a hinged lid cut from the same art,
+/// RFO2 — so it stays pixel-identical at rest. lidOpen 0...1, tilt in degrees.
 struct ChuckCanFigure: View {
     var width: CGFloat
     var lidOpen: Double = 0
     var tilt: Double = 0
 
-    /// Fraction of the artwork height occupied by the lid and rim.
+    /// RFO2 — Fraction of the artwork height occupied by the lid and rim.
     private let lidFraction: CGFloat = 0.345
     private var height: CGFloat { width * 534 / 400 }
 
@@ -53,7 +53,7 @@ struct ChuckCanFigure: View {
                 .mask(alignment: .top) {
                     Rectangle().frame(height: height * lidFraction)
                 }
-                // The shadow deepens as the lid lifts away from the rim.
+                // RFO2 — The shadow deepens as the lid lifts away from the rim.
                 .shadow(color: .black.opacity(0.22 * lidOpen), radius: 6 * lidOpen, y: 3 * lidOpen)
                 .rotationEffect(.degrees(-30 * lidOpen),
                                 anchor: UnitPoint(x: 0.93, y: lidFraction))
@@ -75,7 +75,7 @@ struct ChuckCanFigure: View {
     }
 }
 
-/// A few soft puffs that drift up and out of the can's mouth, then vanish.
+/// RFO2 — A few soft puffs that drift up and out of the can's mouth, then vanish.
 struct DustPuffs: View {
     var trigger: Int
     @State private var spread = false
@@ -107,7 +107,7 @@ struct DustPuffs: View {
     }
 }
 
-/// The receipt line with its byte total rolling up instead of popping in.
+/// RFO2 — The receipt line with its byte total rolling up instead of popping in.
 struct RollingTrashSummary: View, Animatable {
     var count: Int
     var bytes: Double
@@ -121,7 +121,7 @@ struct RollingTrashSummary: View, Animatable {
     }
 }
 
-/// An app icon that floats over the can during a drop or an undo.
+/// RFO2 — An app icon that floats over the can during a drop or an undo.
 struct FlyingAppIcon: View {
     let image: NSImage
     var body: some View {

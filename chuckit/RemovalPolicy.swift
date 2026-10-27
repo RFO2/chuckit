@@ -1,17 +1,17 @@
 // RFO2 — RemovalPolicy.swift
-// Shared path and volume checks for discovery and removal.
-// The same rules are rechecked when removal starts, because the filesystem
-// may have changed since the review screen was shown.
-// See DEVELOPMENT.md for the full workflow and file map.
+// RFO2 — Shared path and volume checks for discovery and removal.
+// RFO2 — The same rules are rechecked when removal starts, because the filesystem
+// RFO2 — may have changed since the review screen was shown.
+// RFO2 — See DEVELOPMENT.md for the full workflow and file map.
 
 import Foundation
 
-/// Only the internal startup volume and its APFS Data volume are eligible.
-/// Volume identity also rejects mounts placed inside an otherwise allowed folder.
+/// RFO2 — Only the internal startup volume and its APFS Data volume are eligible.
+/// RFO2 — Volume identity also rejects mounts placed inside an otherwise allowed folder.
 enum InternalDrivePolicy {
     private static let startupPaths: Set<String> = ["/", "/System/Volumes/Data"]
     // RFO2 — Approve the startup volume and its APFS Data counterpart only when macOS
-    // reports both internal storage and a local volume. A readable mount is not enough.
+    // RFO2 — reports both internal storage and a local volume. A readable mount is not enough.
     private static let approvedVolumes: Set<String> = Set(startupPaths.filter { path in
         let url = URL(fileURLWithPath: path, isDirectory: true)
         guard let values = try? url.resourceValues(forKeys: [.volumeIsInternalKey, .volumeIsLocalKey]) else { return false }
@@ -19,18 +19,18 @@ enum InternalDrivePolicy {
     })
 
     // RFO2 — Check the supplied path and its resolved location. For missing candidates,
-    // use the nearest existing parent only to classify the volume, not to scan it.
+    // RFO2 — use the nearest existing parent only to classify the volume, not to scan it.
     static func allows(_ url: URL) -> Bool {
         guard url.isFileURL, pathIsEligible(url) else { return false }
         let resolved = url.resolvingSymlinksInPath().standardizedFileURL
         guard pathIsEligible(resolved) else { return false }
-        // Missing app-data paths are classified by their closest existing parent.
-        // The scanner still skips missing paths rather than enumerating the parent.
+        // RFO2 — Missing app-data paths are classified by their closest existing parent.
+        // RFO2 — The scanner still skips missing paths rather than enumerating the parent.
         var existing = resolved
         let fm = FileManager.default
         while !fm.fileExists(atPath: existing.path) {
-            // Foundation leaves dangling links unresolved. Never treat one as
-            // an internal missing path: its destination may be an offline drive.
+            // RFO2 — Foundation leaves dangling links unresolved. Never treat one as
+            // RFO2 — an internal missing path: its destination may be an offline drive.
             if (try? fm.attributesOfItem(atPath: existing.path)[.type]) as? FileAttributeType == .typeSymbolicLink { return false }
             let parent = existing.deletingLastPathComponent()
             guard parent.path != existing.path else { return false }
@@ -40,8 +40,8 @@ enum InternalDrivePolicy {
         return approvedVolumes.contains(volume.standardizedFileURL.path)
     }
 
-    /// Enumeration supplies real entries below a validated root and skips links.
-    /// Check their volume without repeatedly resolving every ancestor path.
+    /// RFO2 — Enumeration supplies real entries below a validated root and skips links.
+    /// RFO2 — Check their volume without repeatedly resolving every ancestor path.
     static func allowsEnumeratedEntry(_ url: URL) -> Bool {
         guard url.isFileURL, pathIsEligible(url),
               let volume = try? url.resourceValues(forKeys: [.volumeURLKey]).volume else { return false }
@@ -55,7 +55,7 @@ enum InternalDrivePolicy {
     }
 }
 
-/// Shared by discovery and deletion; never move a broad shared directory to Trash.
+/// RFO2 — Shared by discovery and deletion; never move a broad shared directory to Trash.
 enum RemovalPolicy {
     static func contains(_ child: URL, in parent: URL) -> Bool {
         let c = child.standardizedFileURL.path
@@ -64,7 +64,7 @@ enum RemovalPolicy {
     }
 
     // RFO2 — Discovery hints are not a removal authorization. Reject broad shared roots,
-    // self-removal and redirected ancestor paths again at the point of use.
+    // RFO2 — self-removal and redirected ancestor paths again at the point of use.
     static func rejectionReason(for url: URL) -> String? {
         guard url.isFileURL else { return "Only local files can be removed." }
         guard InternalDrivePolicy.allows(url) else {
@@ -91,14 +91,14 @@ enum RemovalPolicy {
         if own.pathExtension == "app", contains(url, in: own) || contains(own, in: url) {
             return "Chuckit cannot remove itself or its containing folder."
         }
-        // RFO3 — Personal files, iCloud data, credentials and other users' homes are
-        // never leftovers, and anything else must sit in a known app-data location.
+        // RFO2 — RFO3 — Personal files, iCloud data, credentials and other users' homes are
+        // RFO2 — never leftovers, and anything else must sit in a known app-data location.
         if let reason = ProtectedLocations.reason(for: url.standardizedFileURL) ?? ProtectedLocations.reason(for: url.resolvingSymlinksInPath().standardizedFileURL) {
             return reason
         }
-        // An ancestor link could redirect a removal operation after review.
-        // /var, /tmp and /etc are standard macOS links into /private; Foundation drops the
-        // /private prefix inconsistently, so compare both sides without it.
+        // RFO2 — An ancestor link could redirect a removal operation after review.
+        // RFO2 — /var, /tmp and /etc are standard macOS links into /private; Foundation drops the
+        // RFO2 — /private prefix inconsistently, so compare both sides without it.
         let parent = url.deletingLastPathComponent()
         if withoutPrivatePrefix(parent.standardizedFileURL.path) != withoutPrivatePrefix(parent.resolvingSymlinksInPath().standardizedFileURL.path) {
             return "This path passes through a symbolic link. Select its real location instead."
@@ -106,7 +106,7 @@ enum RemovalPolicy {
         return nil
     }
 
-    /// Maps /private/var, /private/tmp and /private/etc onto their standard /var, /tmp, /etc links.
+    /// RFO2 — Maps /private/var, /private/tmp and /private/etc onto their standard /var, /tmp, /etc links.
     static func withoutPrivatePrefix(_ path: String) -> String {
         for link in ["/var", "/tmp", "/etc"] where path == "/private" + link || path.hasPrefix("/private" + link + "/") {
             return String(path.dropFirst("/private".count))
@@ -115,21 +115,21 @@ enum RemovalPolicy {
     }
 
     // RFO2 — This is a writability hint for the UI. The actual move and any required
-    // authorization are decided by macOS or Finder, not by this Boolean.
+    // RFO2 — authorization are decided by macOS or Finder, not by this Boolean.
     static func needsAdmin(_ url: URL) -> Bool {
         !FileManager.default.isWritableFile(atPath: url.deletingLastPathComponent().path)
     }
 }
 
-// RFO3 — File-safety rules shared by scanning and removal.
-// Leftovers may only come from places where apps keep their own data. A user's
-// documents, iCloud Drive, keychains, mail and other people's home folders are
-// refused outright, even if a name looks like the app. A dropped .app bundle is
-// the one thing allowed outside app-data folders (e.g. an app on the Desktop).
+// RFO2 — RFO3 — File-safety rules shared by scanning and removal.
+// RFO2 — Leftovers may only come from places where apps keep their own data. A user's
+// RFO2 — documents, iCloud Drive, keychains, mail and other people's home folders are
+// RFO2 — refused outright, even if a name looks like the app. A dropped .app bundle is
+// RFO2 — the one thing allowed outside app-data folders (e.g. an app on the Desktop).
 enum ProtectedLocations {
-    /// Personal folders: only an .app bundle sitting there may be chucked.
+    /// RFO2 — Personal folders: only an .app bundle sitting there may be chucked.
     static let personalFolders = ["Desktop", "Documents", "Downloads", "Pictures", "Movies", "Music", "Public"]
-    /// Never touched at all, including everything inside.
+    /// RFO2 — Never touched at all, including everything inside.
     static let sensitiveFolders = ["Library/Mobile Documents", "Library/CloudStorage", "Library/Keychains",
         "Library/Mail", "Library/Messages", "Library/Photos", "Library/Safari", "Library/Calendars",
         "Library/Reminders", "Library/Accounts", "Library/Cookies", "Library/HomeKit", "Library/Notes",
@@ -138,7 +138,7 @@ enum ProtectedLocations {
         "Library/Application Support/iCloud", "Library/Containers/com.apple.Notes",
         "Library/Group Containers/group.com.apple.notes",
         ".ssh", ".gnupg", ".aws", ".kube", ".docker", ".config", ".local", ".Trash"]
-    /// Where an app's own leftovers can legitimately live.
+    /// RFO2 — Where an app's own leftovers can legitimately live.
     static func allowedRoots(home: String) -> [String] {
         ["/Applications", "/Library", "/Users/Shared", "/usr/local", "/opt", "/private/var/folders", "/var/folders",
          "/private/tmp", "/tmp", home + "/Library", home + "/Applications"]
@@ -150,7 +150,7 @@ enum ProtectedLocations {
         let isApp = url.pathExtension.lowercased() == "app"
         func under(_ root: String) -> Bool { path == root || path.hasPrefix(root + "/") }
         for folder in sensitiveFolders where under(homePath + "/" + folder) {
-            // ~/.config itself is protected; a single app's folder inside it may go.
+            // RFO2 — ~/.config itself is protected; a single app's folder inside it may go.
             if folder == ".config" || folder == ".local", path != homePath + "/" + folder { continue }
             return "Personal data, iCloud and credential folders are protected. Chuckit never removes them."
         }
@@ -158,7 +158,7 @@ enum ProtectedLocations {
             if isApp && path != homePath + "/" + folder { return nil }
             return "Your personal files (Desktop, Documents, Downloads, Pictures, Movies, Music) are protected. Only an app itself can be chucked from there."
         }
-        // Other people's home folders are off limits.
+        // RFO2 — Other people's home folders are off limits.
         for usersRoot in ["/Users", "/System/Volumes/Data/Users"] where path.hasPrefix(usersRoot + "/") {
             let owner = path.dropFirst(usersRoot.count + 1).split(separator: "/").first.map(String.init) ?? ""
             if owner != "Shared" && usersRoot + "/" + owner != homePath && !homePath.hasPrefix(usersRoot + "/" + owner + "/") && homePath != usersRoot + "/" + owner {
@@ -166,11 +166,11 @@ enum ProtectedLocations {
             }
         }
         if isApp { return nil }
-        // Apple's own data under a Library folder stays put.
+        // RFO2 — Apple's own data under a Library folder stays put.
         if path.contains("/Library/"), url.lastPathComponent.lowercased().hasPrefix("com.apple.") {
             return "Apple system data is protected."
         }
-        // Hidden per-app folders directly in the home folder (~/.someapp) are allowed.
+        // RFO2 — Hidden per-app folders directly in the home folder (~/.someapp) are allowed.
         if path.hasPrefix(homePath + "/.") {
             let first = path.dropFirst(homePath.count + 1).split(separator: "/").first.map(String.init) ?? ""
             if first.hasPrefix(".") && first.count > 1 { return nil }
@@ -180,7 +180,7 @@ enum ProtectedLocations {
         return "Chuckit only removes leftovers from app-data folders such as ~/Library. This item is somewhere personal files may live, so it was left alone."
     }
 
-    // RFO3 — Apple's own apps (and chuckit) are never chuckable.
+    // RFO2 — RFO3 — Apple's own apps (and chuckit) are never chuckable.
     static func appRefusal(bundleIdentifier: String?, url: URL, ownBundleIdentifier: String? = Bundle.main.bundleIdentifier) -> String? {
         let id = bundleIdentifier?.lowercased() ?? ""
         if id.hasPrefix("com.apple.") { return "This is an Apple app that is part of macOS. Chuckit leaves Apple's apps alone." }

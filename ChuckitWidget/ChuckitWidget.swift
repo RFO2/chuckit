@@ -1,7 +1,7 @@
 // RFO2 — ChuckitWidget.swift
-// A separate WidgetKit target displays its own mascot resource and opens the app.
-// No file investigation or removal happens inside the widget extension.
-// See DEVELOPMENT.md for target boundaries and URL routing.
+// RFO2 — A separate WidgetKit target displays its own mascot resource and opens the app.
+// RFO2 — No file investigation or removal happens inside the widget extension.
+// RFO2 — See DEVELOPMENT.md for target boundaries and URL routing.
 
 import SwiftUI
 import WidgetKit
@@ -11,7 +11,7 @@ struct ChuckitWidgetEntry: TimelineEntry {
 }
 
 // RFO2 — the content is static. A never-refresh timeline avoids background
-// refresh work for a widget whose only action is opening the application.
+// RFO2 — refresh work for a widget whose only action is opening the application.
 struct ChuckitWidgetProvider: TimelineProvider {
     func placeholder(in context: Context) -> ChuckitWidgetEntry { .init(date: .now) }
     func getSnapshot(in context: Context, completion: @escaping (ChuckitWidgetEntry) -> Void) {
@@ -31,7 +31,7 @@ struct ChuckitWidgetView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .accessibilityLabel("Open Chuckit")
             // RFO2 — macOS routes this URL using the main app's ChuckitInfo.plist.
-            // ChuckItApp accepts the open route and activates its window.
+            // RFO2 — ChuckItApp accepts the open route and activates its window.
             .widgetURL(URL(string: "chuckit://open"))
             .containerBackground(for: .widget) {
                 Color(red: 0.90, green: 0.90, blue: 0.90)

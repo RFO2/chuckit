@@ -1,8 +1,8 @@
 // RFO2 — MatchEngine.swift
-// Produces matching evidence without moving or deleting files.
-// A candidate can be suggested without being checked. The scanner applies
-// scope and selection rules after receiving this evidence.
-// See DEVELOPMENT.md for the full workflow and file map.
+// RFO2 — Produces matching evidence without moving or deleting files.
+// RFO2 — A candidate can be suggested without being checked. The scanner applies
+// RFO2 — scope and selection rules after receiving this evidence.
+// RFO2 — See DEVELOPMENT.md for the full workflow and file map.
 
 import Foundation
 
@@ -12,14 +12,14 @@ enum MatchEngine {
         let selected: Bool
     }
 
-    /// Extensions an app commonly appends to its own identifier ("com.foo.app.plist").
+    /// RFO2 — Extensions an app commonly appends to its own identifier ("com.foo.app.plist").
     static let knownIdentifierSuffixes: Set<String> = ["plist", "savedstate", "binarycookies", "helper", "lockfile", "lock",
         "log", "logs", "db", "sqlite", "sqlite-wal", "sqlite-shm", "wal", "shm", "json", "xml", "txt", "cache", "dat",
         "crash", "ips", "diag", "sfl2", "sfl3", "tmp", "bak", "backup", "list", "settings", "storedata", "cookies", "data"]
 
     // RFO2 — Accept the exact identifier, or the identifier followed only by known file
-    // extensions. A dotted sibling product (com.foo.app.other) is not this app; embedded
-    // helpers match only when the bundle lists them explicitly.
+    // RFO2 — extensions. A dotted sibling product (com.foo.app.other) is not this app; embedded
+    // RFO2 — helpers match only when the bundle lists them explicitly.
     static func identifierMatches(_ name: String, identifier: String) -> Bool {
         let name = name.lowercased(), id = identifier.lowercased()
         if name == id { return true }
@@ -28,9 +28,9 @@ enum MatchEngine {
         return !suffixes.isEmpty && suffixes.allSatisfy { knownIdentifierSuffixes.contains(String($0)) }
     }
 
-    // RFO3 — Embedded helpers from shared frameworks (e.g. Sparkle's updater,
-    // org.sparkle-project.*) appear inside many apps, so their files are not this
-    // app's alone. Keep only helpers from the same vendor as the main app.
+    // RFO2 — RFO3 — Embedded helpers from shared frameworks (e.g. Sparkle's updater,
+    // RFO2 — org.sparkle-project.*) appear inside many apps, so their files are not this
+    // RFO2 — app's alone. Keep only helpers from the same vendor as the main app.
     static func ownedHelperIdentifiers(_ helpers: [String], mainIdentifier: String?) -> [String] {
         guard let main = mainIdentifier?.lowercased() else { return [] }
         let parts = main.split(separator: ".")
@@ -44,7 +44,7 @@ enum MatchEngine {
     }
 
     // RFO2 — Known app/helper IDs get strong evidence; app groups and name-only evidence
-    // need review. The scanner can still leave a strong match unchecked by scope.
+    // RFO2 — need review. The scanner can still leave a strong match unchecked by scope.
     static func evidence(fileName: String, target: AppTarget) -> Evidence? {
         let ids = [target.bundleIdentifier].compactMap { $0 } + target.helperBundleIdentifiers
         if ids.contains(where: { !$0.isEmpty && identifierMatches(fileName, identifier: $0) }) {
@@ -62,7 +62,7 @@ enum MatchEngine {
     }
 
     // RFO2 — Some launch services and UUID containers are identified by plist metadata
-    // rather than a useful filename. Read these only after traversal policy checks.
+    // RFO2 — rather than a useful filename. Read these only after traversal policy checks.
     static func evidence(at url: URL, target: AppTarget) -> Evidence? {
         if let result = evidence(fileName: url.lastPathComponent, target: target) { return result }
         if ["Containers", "Group Containers"].contains(url.deletingLastPathComponent().lastPathComponent),
@@ -71,7 +71,7 @@ enum MatchEngine {
            let result = evidence(fileName: id, target: target) {
             return result
         }
-        // launchd labels and executables sometimes do not match the app filename.
+        // RFO2 — launchd labels and executables sometimes do not match the app filename.
         if url.pathExtension == "plist",
            ["LaunchAgents", "LaunchDaemons"].contains(url.deletingLastPathComponent().lastPathComponent),
            let dict = plist(at: url) {
@@ -85,7 +85,7 @@ enum MatchEngine {
     }
 
     // RFO2 — Limit metadata reads to one megabyte so a candidate plist cannot trigger
-    // an unbounded read during a scan. Invalid or oversized metadata is ignored.
+    // RFO2 — an unbounded read during a scan. Invalid or oversized metadata is ignored.
     private static func plist(at url: URL) -> [String: Any]? {
         guard let size = (try? FileManager.default.attributesOfItem(atPath: url.path))?[.size] as? NSNumber,
               size.intValue <= 1_048_576, let data = try? Data(contentsOf: url) else { return nil }
@@ -93,7 +93,7 @@ enum MatchEngine {
     }
 
     // RFO2 — Word boundaries prevent a short app name from matching inside another word.
-    // Punctuation can separate names; letter and number neighbors cannot.
+    // RFO2 — Punctuation can separate names; letter and number neighbors cannot.
     private static func containsWord(haystack: String, needle: String) -> Bool {
         var start = haystack.startIndex
         while start < haystack.endIndex,

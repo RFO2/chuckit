@@ -1,15 +1,15 @@
 // RFO2 — FullDiskAccessSetup.swift
-// Explains macOS access and removal permissions to the user.
-// These views open settings or provide instructions; they do not grant access
-// or collect an administrator password on behalf of the operating system.
-// See DEVELOPMENT.md for the full workflow and file map.
+// RFO2 — Explains macOS access and removal permissions to the user.
+// RFO2 — These views open settings or provide instructions; they do not grant access
+// RFO2 — or collect an administrator password on behalf of the operating system.
+// RFO2 — See DEVELOPMENT.md for the full workflow and file map.
 
 import AppKit
 import SwiftUI
 
-/// Explain the permission before opening Settings. Only the user can enable it.
+/// RFO2 — Explain the permission before opening Settings. Only the user can enable it.
 // RFO2 — Show the actual running app location so the user can choose the right copy
-// in Settings when several development builds exist.
+// RFO2 — in Settings when several development builds exist.
 struct FullDiskAccessSetup: View {
     var retryAppName: String? = nil
     @Environment(\.dismiss) private var dismiss
@@ -75,9 +75,9 @@ struct FullDiskAccessSetup: View {
 }
 
 
-/// A failed Trash operation does not reveal which privacy switch is disabled.
+/// RFO2 — A failed Trash operation does not reveal which privacy switch is disabled.
 // RFO2 — Access to read app data and permission to move an application are different
-// decisions. The instructions distinguish app management from Finder automation.
+// RFO2 — decisions. The instructions distinguish app management from Finder automation.
 struct RemovalPermissionSetup: View {
     let forApplication: Bool
     var forFinder = false
